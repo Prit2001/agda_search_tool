@@ -1,12 +1,26 @@
-# Basic Python Project
+# AGDA Search Tool
 
-This is a simple Python project scaffold that includes:
+- **main.py**: Application entry‑point—parses CLI arguments and starts the search loop.
+- **requirements.txt**: Python dependencies locked to tested versions.
+- **README.md**: Project documentation.
+- **.env/sample.env**: Environment variables consumed by main.py.
 
-- **main.py**: Entry point
-- **requirements.txt**: Lists project dependencies.
-- **README.md**: Project overview and usage instructions.
 
-## Setup
+## Quick-start
 
-```bash
-pip install -r requirements.txt
+# 1. Clone the repository
+$ git clone https://gitlab.rhrk.uni-kl.de/dek50dyx/agda_search_tool.git
+$ cd agda_search_tool
+
+# 2. Install dependencies
+$ pip install -r requirements.txt
+
+# 3. Copy environment template and edit values
+$ cp sample.env .env
+$ nano .env  # set DB credentials, host, port, etc.
+
+# 4. Initialise the database (one‑time)
+$ createdb agda_search             # create database in PostgreSQL
+
+# 5. Run the application
+$ python main.py             
