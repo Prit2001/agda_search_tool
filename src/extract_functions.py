@@ -1,5 +1,10 @@
 import re
 import os
+import psycopg2
+from psycopg2.extras import execute_values
+import logging
+
+from config import CREATE_TABLE_SQL, DB_PARAMS
 
 
 def extract_functions_from_agda(file_path):
@@ -44,6 +49,41 @@ def extract_from_project(directory):
         for file in files:
             if file.endswith(".lagda"):
                 file_path = os.path.join(root, file)
+                rel_path = os.path.relpath(file_path, start=directory)
                 funcs = extract_functions_from_agda(file_path)
-                all_functions.extend(funcs)
+                for f in funcs:
+                    all_functions.append(
+                        (f["name"], f["input_types"], f["output_type"], rel_path)
+                    )
     return all_functions
+
+
+def ensure_table_exists() -> None:
+    conn = psycopg2.connect(**DB_PARAMS)
+    print(conn)
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute(CREATE_TABLE_SQL)
+                logging.info("Ensured agda_functions table exists.")
+    finally:
+        conn.close()
+
+
+def save_functions_to_db(directory):
+    records = extract_from_project(directory)
+    ensure_table_exists()
+    if records:
+        conn = psycopg2.connect(**DB_PARAMS)
+        try:
+            with conn:
+                with conn.cursor() as cur:
+                    sql = (
+                        "INSERT INTO agda_functions"
+                        " (name, input_types, output_type, file_path)"
+                        " VALUES %s"
+                    )
+                    execute_values(cur, sql, records)
+            logging.info("Inserted %d records into the database", len(records))
+        finally:
+            conn.close()

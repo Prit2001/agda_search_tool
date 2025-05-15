@@ -1,6 +1,6 @@
 import os
 from dotenv import load_dotenv
-from extract_functions import extract_from_project
+from extract_functions import save_functions_to_db
 
 
 def main():
@@ -10,8 +10,7 @@ def main():
     if not project_dir:
         raise RuntimeError("Please set AGDA_PROJECT_DIRECTORY in your .env file")
 
-    functions = extract_from_project(project_dir)
-    print(functions)
+    save_functions_to_db(project_dir)
 
 
 if __name__ == "__main__":
