@@ -66,24 +66,38 @@ def ensure_table_exists() -> None:
             with conn.cursor() as cur:
                 cur.execute(CREATE_TABLE_SQL)
                 logging.info("Ensured agda_functions table exists.")
+                cur.execute(
+                    """
+                    CREATE UNIQUE INDEX IF NOT EXISTS
+                      agda_functions_unique_idx
+                    ON agda_functions(name, input_types, file_path);
+                    """
+                )
+                logging.info("Ensured unique index on agda_functions.")
     finally:
         conn.close()
 
 
 def save_functions_to_db(directory):
     records = extract_from_project(directory)
+    if not records:
+        logging.info("No functions found to insert.")
+        return
+
     ensure_table_exists()
-    if records:
-        conn = psycopg2.connect(**DB_PARAMS)
-        try:
-            with conn:
-                with conn.cursor() as cur:
-                    sql = (
-                        "INSERT INTO agda_functions"
-                        " (name, input_types, output_type, file_path)"
-                        " VALUES %s"
-                    )
-                    execute_values(cur, sql, records)
-            logging.info("Inserted %d records into the database", len(records))
-        finally:
-            conn.close()
+
+    insert_sql = (
+        "INSERT INTO agda_functions"
+        " (name, input_types, output_type, file_path)"
+        " VALUES %s"
+        " ON CONFLICT (name, input_types, file_path) DO NOTHING"
+    )
+
+    conn = psycopg2.connect(**DB_PARAMS)
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                execute_values(cur, insert_sql, records)
+        logging.info("Inserted %d new records into the database", len(records))
+    finally:
+        conn.close()
