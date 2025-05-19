@@ -21,21 +21,33 @@ def extract_functions_from_agda(file_path):
     for block in blocks:
         block = re.sub(r"(?ms)\{\-.*?\-\}", "", block)
 
-        cleaned_lines = []
+        cleaned = []
         for line in block.splitlines():
             line = re.sub(r"--.*", "", line)
-            if not line.strip():
-                continue
-            cleaned_lines.append(line)
+            if line.strip():
+                cleaned.append(line)
+        block = "\n".join(cleaned)
 
-        cleaned_block = "\n".join(cleaned_lines)
+        for m in decl_re.finditer(block):
+            name, sig = m.group(1), m.group(2).strip()
 
-        for match in decl_re.finditer(cleaned_block):
-            name = match.group(1)
-            sig = match.group(2).strip()
+            sig = re.sub(r"^(∀|forall)[^→\-]*[→\-]\s*", "", sig)
+
             parts = re.split(r"\s*→\s*|\s*->\s*", sig)
+
+            parts = [
+                p.strip() for p in parts if p.strip() and not p.strip().startswith("{")
+            ]
+
+            if len(parts) < 2:
+                continue
+
             input_types = parts[:-1]
             output_type = parts[-1]
+
+            if not name[0].islower():
+                continue
+
             functions.append(
                 {"name": name, "input_types": input_types, "output_type": output_type}
             )
