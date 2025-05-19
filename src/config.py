@@ -1,5 +1,8 @@
 import os
+from dotenv import load_dotenv
 
+
+load_dotenv()
 
 DB_PARAMS = {
     "host": os.getenv("DB_HOST", "localhost"),
