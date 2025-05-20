@@ -6,6 +6,10 @@ import logging
 
 from config import CREATE_TABLE_SQL, DB_PARAMS
 
+# Basic operator list (→ included, "->" removed as per request)
+KNOWN_OPERATORS = {
+    "→", "+", "-", "*", "/", "×", "÷", "≡", "≠", "<", ">", "≤", "≥", "::", "++", "⊕", "⊗", "⊓", "⊔", "∧", "∨"
+}
 
 def extract_functions_from_agda(file_path):
     with open(file_path, "r", encoding="utf-8") as f:
@@ -35,7 +39,6 @@ def extract_functions_from_agda(file_path):
             name, sig = m.group(1), m.group(2).strip()
 
             original_sig = sig
-
             parts = [p.strip() for p in re.split(r"\s*→\s*", sig) if p.strip()]
             if len(parts) < 2:
                 continue
@@ -43,13 +46,32 @@ def extract_functions_from_agda(file_path):
             input_types = parts[:-1]
             output_type = parts[-1]
 
-            functions.append(
-                {
-                    "name": name,
-                    "signature": original_sig,
-                    "input_types": input_types,
-                    "output_type": output_type,
-                }
-            )
+            variables, operators, numbers = classify_signature(input_types + [output_type])
+
+            functions.append({
+                "name": name,
+                "signature": original_sig,
+                "input_types": input_types,
+                "output_type": output_type,
+                "variables": variables,
+                "operators": operators,
+                "numbers": numbers
+            })
 
     return functions
+
+def classify_signature(segments):
+    combined = " ".join(segments)
+    tokens = re.split(r"[ \t\n\r\f\v:→(){}⦃⦄]+", combined)
+    variables, operators, numbers = set(), set(), set()
+    for tok in tokens:
+        tok = tok.strip(",")
+        if not tok:
+            continue
+        if tok.isdigit():
+            numbers.add(tok)
+        elif tok in KNOWN_OPERATORS:
+            operators.add(tok)
+        elif re.match(r"^[a-z_][\w']*$", tok):
+            variables.add(tok)
+    return list(variables), list(operators), list(numbers)

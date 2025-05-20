@@ -1,7 +1,6 @@
 import os
 from dotenv import load_dotenv
 
-
 load_dotenv()
 
 DB_PARAMS = {
@@ -19,6 +18,9 @@ CREATE TABLE IF NOT EXISTS agda_signatures (
     function_name TEXT,
     signature TEXT,
     input_types TEXT[],
-    output_type TEXT
+    output_type TEXT,
+    variables TEXT[],
+    operators TEXT[],
+    numbers TEXT[]
 );
 """
