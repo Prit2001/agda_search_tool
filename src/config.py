@@ -13,11 +13,12 @@ DB_PARAMS = {
 }
 
 CREATE_TABLE_SQL = """
-CREATE TABLE IF NOT EXISTS agda_functions (
-  id SERIAL PRIMARY KEY,
-  name TEXT NOT NULL,
-  input_types TEXT[] NOT NULL,
-  output_type TEXT NOT NULL,
-  file_path TEXT NOT NULL
+CREATE TABLE IF NOT EXISTS agda_signatures (
+    id SERIAL PRIMARY KEY,
+    file_path TEXT,
+    function_name TEXT,
+    signature TEXT,
+    input_types TEXT[],
+    output_type TEXT
 );
 """
