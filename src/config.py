@@ -20,6 +20,9 @@ CREATE TABLE IF NOT EXISTS agda_signatures (
     input_types       TEXT[]    NOT NULL,
     output_type       TEXT      NOT NULL,
     signature_parts   TEXT[]    NOT NULL,
+    variables         TEXT[]    NOT NULL,
+    operators         TEXT[]    NOT NULL,
+    numbers           TEXT[]    NOT NULL,
     UNIQUE (file_path, function_name, signature)
 );
 """
