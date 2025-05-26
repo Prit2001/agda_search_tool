@@ -5,7 +5,6 @@ from extract_functions import AgdaExtractor, DatabaseClient
 
 logging.basicConfig(level=logging.INFO)
 
-
 def main():
     root_dir = os.getenv("AGDA_PROJECT_DIRECTORY")
     if not root_dir:
@@ -21,7 +20,6 @@ def main():
         db.insert_into_db(functions)
     else:
         logging.info("No functions to insert.")
-
 
 if __name__ == "__main__":
     main()
