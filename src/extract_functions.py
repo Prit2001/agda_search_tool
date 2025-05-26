@@ -28,8 +28,7 @@ class AgdaParser:
         re.compile(r"(?ms)```agda\s*(.*?)```"),
     ]
     DECL_RE = re.compile(
-        r"^\s*([\w⁅⁆′≡≠≤≥⊓⊔⊤⊥∧∨∃∀λΣΠ⟦⟧⟨⟩·•□◯∞≜≔⇔⇒←→↔⇐⇑⇓⇨⇦∈∉∋∌⊆⊇⊂⊃∪∩-]+)"
-        r"\s*:\s*(.+?)\s*$",
+        r"^\s*([\w⁅⁆′≡≠≤≥⊓⊔⊤⊥∧∨∃∀λΣΠ⟦⟧⟨⟩·•□◯∞≜≔⇔⇒←→↔⇐⇑⇓⇨⇦∈∉∋∌⊆⊇⊂⊃∪∩-]+)\s*:\s*(.+?)\s*$",
         re.MULTILINE,
     )
 
@@ -52,7 +51,6 @@ class AgdaParser:
                 parts = [p.strip() for p in re.split(r"\s*→\s*", sig) if p.strip()]
                 if len(parts) < 2:
                     continue
-
                 results.append(
                     {
                         "name": name,
@@ -66,29 +64,51 @@ class AgdaParser:
 
 def build_signature_parts(parts: List[str]) -> List[str]:
     out: List[str] = []
+    types_to_ignore = {"Ordering", "List", "Set", "Tuple", "Bool"}
 
     if parts and parts[0].startswith("∀"):
         m = re.search(r"\{([^}]*)\}", parts[0])
         if m:
-            for v in m.group(1).split():
-                out.append(f"[{v} var]")
+            inside = m.group(1)
+            names = re.findall(r"([A-Za-z_][\w≡]*)\s*:", inside)
+            for v in names:
+                if v != "_":
+                    out.append(f"[{v} var]")
         parts = parts[1:]
 
     op_pat = re.compile(
-        r"^([A-Za-z_]\w*)\s*(≤|<|≥|>|≡|≠|::|\+\+|⊕|⊗|⊓|⊔|∧|∨)\s*([A-Za-z_]\w*)$"
+        r"^([A-Za-z_]\w*)\s*(≤|<|≥|>|::|\+\+|⊕|⊗|⊓|⊔|∧|∨)\s*([A-Za-z_]\w*)$"
     )
+
     for part in parts:
-        for seg in re.split(r"[,;]\s*", part):
-            seg = seg.strip()
+        for raw in re.split(r"[,;]\s*", part):
+            seg = raw.strip()
+            seg = seg.strip("(){}⦃⦄")
+            if not seg or seg == "_":
+                continue
+            if ":" in seg:
+                seg = seg.split(":", 1)[0].strip()
+            tokens = seg.split()
+            if tokens and tokens[0] in types_to_ignore:
+                tokens = tokens[1:]
+                if len(tokens) == 2:
+                    out.append(f"[{tokens[0]} var -> {tokens[1]} var]")
+                else:
+                    for t in tokens:
+                        if t and t != "_" and t not in types_to_ignore:
+                            out.append(f"[{t} var]")
+                continue
+            if " " not in seg:
+                out.append(f"[{seg} var]")
+                continue
             m = op_pat.match(seg)
             if m:
                 lhs, op, rhs = m.groups()
                 out.append(f"[{lhs} var -> {op} op -> {rhs} var]")
             else:
-                if re.match(r"^[A-Za-z_]\w*$", seg):
-                    out.append(f"[{seg} var]")
-                else:
-                    out.append(f"[{seg}]")
+                for t in tokens:
+                    if t and t != "_" and t not in types_to_ignore:
+                        out.append(f"[{t} var]")
     return out
 
 
@@ -124,9 +144,7 @@ def extract_and_persist(root_dir: str) -> int:
     scanner = AgdaScanner(root_dir)
     parser_ = AgdaParser()
     db = DatabaseClient(DB_PARAMS)
-
     db.ensure_schema()
-
     all_rows: List[Tuple[Any, ...]] = []
     for fp in scanner.scan_files():
         rel = os.path.relpath(fp, start=root_dir)
@@ -146,11 +164,9 @@ def extract_and_persist(root_dir: str) -> int:
                 )
         except Exception as e:
             logging.error(f"Error parsing {rel}: {e}")
-
     if not all_rows:
         logging.info("No functions found.")
         return 0
-
     inserted = db.insert(all_rows)
     logging.info(f"Found {len(all_rows)} functions")
     return inserted
