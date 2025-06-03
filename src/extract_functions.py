@@ -8,18 +8,15 @@ from config import DB_PARAMS, CREATE_TABLE_SQL
 
 KNOWN_OPERATORS = {
     "→", "+", "-", "*", "/", "×", "÷", "≡", "≠", "<", ">", "≤", "≥", "::", "++",
-    "⊕", "⊗", "⊓", "⊔", "∧", "∨"
+    "⊕", "⊗", "⊓", "⊔", "∧", "∨", "¬",
+    "even", "Parity"
 }
 
 KNOWN_TYPE_CONSTRUCTORS = {
     "Set", "Bool", "List", "Ordering", "Maybe", "Nat", "Char", "String", "IO", "Either", "Eq", "Show", "Ord"
 }
 
-BRACKET_PAIRS = {
-    '{': '}',
-    '⦃': '⦄',
-    '(': ')'
-}
+BRACKET_PAIRS = {'{': '}', '⦃': '⦄', '(': ')'}
 
 
 def extract_bracketed_tokens(s):
@@ -52,9 +49,19 @@ def extract_bracketed_tokens(s):
     return tokens
 
 
-def classify_signature(segments, known_vars=None, known_ops=None):
-    known_vars = set(known_vars or [])
-    known_ops = set(known_ops or [])
+def classify_token(tok, declared_variables, type_constructors):
+    if tok.isdigit():
+        return "num"
+    if tok in declared_variables:
+        return "var"
+    if tok in KNOWN_OPERATORS or tok in type_constructors:
+        return "oper"
+    if re.fullmatch(r"[a-zA-Z_≤≥≠≡⊔⊓′₀₁₂₃₄₅₆₇₈₉][\w′₀₁₂₃₄₅₆₇₈₉≤≥≠≡⊔⊓']*", tok):
+        return "var"
+    return "unknown"
+
+
+def classify_signature(segments, declared_variables, type_constructors):
     combined = " ".join(segments)
     tokens = re.split(r"[ \t\n\r\f\v:→(){}⦃⦄]+", combined)
     variables, operators, numbers = set(), set(), set()
@@ -63,37 +70,30 @@ def classify_signature(segments, known_vars=None, known_ops=None):
         tok = tok.strip(",")
         if not tok:
             continue
-        if tok.isdigit():
+        kind = classify_token(tok, declared_variables, type_constructors)
+        if kind == "num":
             numbers.add(tok)
-        elif tok in KNOWN_OPERATORS or tok in KNOWN_TYPE_CONSTRUCTORS or tok in known_ops:
-            operators.add(tok)
-        elif tok in known_vars:
+        elif kind == "var":
             variables.add(tok)
-        elif re.fullmatch(r"[a-zA-Z_≤≥≠≡⊔⊓][\w≤≥≠≡⊔⊓₀₁₂₃₄₅₆₇₈₉′']*", tok):
-            variables.add(tok)
-        else:
+        elif kind == "oper":
             operators.add(tok)
 
     return list(variables), list(operators), list(numbers)
 
 
-def annotate_piece(piece, known_vars=None, known_ops=None):
-    known_vars = set(known_vars or [])
-    known_ops = set(known_ops or [])
+def annotate_piece(piece, declared_variables, type_constructors):
     piece = piece.strip()
     if ":" in piece:
         left, right = map(str.strip, piece.split(":", 1))
-        return f"var {left} : {' '.join(annotate_signature(right, known_vars, known_ops))}"
-    if piece.isdigit():
-        return f"num {piece}"
-    if piece in KNOWN_TYPE_CONSTRUCTORS or piece in KNOWN_OPERATORS or piece in known_ops:
-        return f"oper {piece}"
-    if piece in known_vars or re.fullmatch(r"[a-zA-Z_≤≥≠≡⊔⊓][\w≤≥≠≡⊔⊓₀₁₂₃₄₅₆₇₈₉′']*", piece):
-        return f"var {piece}"
-    return f"oper {piece}"
+        right_annot = ' '.join(annotate_signature(right, declared_variables, type_constructors))
+        return f"var {left} : {right_annot}"
+    kind = classify_token(piece, declared_variables, type_constructors)
+    if kind in {"var", "oper", "num"}:
+        return f"{kind} {piece}"
+    return piece
 
 
-def annotate_signature(signature, known_vars=None, known_ops=None):
+def annotate_signature(signature, declared_variables, type_constructors):
     tokens = extract_bracketed_tokens(signature)
     result = []
     for tok in tokens:
@@ -103,45 +103,40 @@ def annotate_signature(signature, known_vars=None, known_ops=None):
         elif any(clean.startswith(b) and clean.endswith(BRACKET_PAIRS[b]) for b in BRACKET_PAIRS):
             b = next(b for b in BRACKET_PAIRS if clean.startswith(b))
             inner = clean[1:-1].strip()
-            annotated_inner = annotate_piece(inner, known_vars, known_ops) if ':' in inner else ' '.join(annotate_signature(inner, known_vars, known_ops))
+            annotated_inner = annotate_piece(inner, declared_variables, type_constructors) if ':' in inner else ' '.join(
+                annotate_signature(inner, declared_variables, type_constructors))
             result.append(f"{b}{annotated_inner}{BRACKET_PAIRS[b]}")
         else:
-            result.append(annotate_piece(clean, known_vars, known_ops))
+            result.append(annotate_piece(clean, declared_variables, type_constructors))
     return result
 
 
-def shallow_trace_piece(piece, known_vars=None, known_ops=None):
-    known_vars = set(known_vars or [])
-    known_ops = set(known_ops or [])
+def shallow_trace_piece(piece, declared_variables, type_constructors):
     piece = piece.strip()
     if ":" in piece:
         left = piece.split(":", 1)[0].strip()
         return f"var {left}"
-    if piece.isdigit():
-        return f"num {piece}"
-    if piece in KNOWN_TYPE_CONSTRUCTORS or piece in KNOWN_OPERATORS or piece in known_ops:
-        return f"oper {piece}"
-    if piece in known_vars or re.fullmatch(r"[a-zA-Z_≤≥≠≡⊔⊓][\w≤≥≠≡⊔⊓₀₁₂₃₄₅₆₇₈₉′']*", piece):
-        return f"var {piece}"
-    return f"oper {piece}"
+    kind = classify_token(piece, declared_variables, type_constructors)
+    if kind in {"var", "oper", "num"}:
+        return f"{kind} {piece}"
+    return None
 
 
-def generate_shallow_trace(signature, known_vars=None, known_ops=None):
+def generate_shallow_trace(signature, declared_variables, type_constructors):
     tokens = extract_bracketed_tokens(signature)
     result = []
     for tok in tokens:
         clean = tok.strip()
         if clean in ['→', ',']:
-            result.append(clean)
+            continue
         elif any(clean.startswith(b) and clean.endswith(BRACKET_PAIRS[b]) for b in BRACKET_PAIRS):
             b = next(b for b in BRACKET_PAIRS if clean.startswith(b))
             inner = clean[1:-1].strip()
-            st_inner = shallow_trace_piece(inner, known_vars, known_ops) if ':' in inner else " ".join(
-                x for x in generate_shallow_trace(inner, known_vars, known_ops) if x
-            )
+            st_inner = shallow_trace_piece(inner, declared_variables, type_constructors) if ':' in inner else ", ".join(
+                x for x in generate_shallow_trace(inner, declared_variables, type_constructors) if x)
             result.append(f"{b}{st_inner}{BRACKET_PAIRS[b]}")
         else:
-            piece = shallow_trace_piece(clean, known_vars, known_ops)
+            piece = shallow_trace_piece(clean, declared_variables, type_constructors)
             if piece:
                 result.append(piece)
     return result
@@ -149,15 +144,17 @@ def generate_shallow_trace(signature, known_vars=None, known_ops=None):
 
 class AgdaExtractor:
     decl_re = re.compile(
-        r"^\s*([\w⁅⁆′≡≠≤≥⊓⊔⊤⊥∧∨∃∀λΣΠ⟦⟧⟨⟩·•□◯∞≜≔⇔⇒←→↔⇐⇑⇓⇨⇦∈∉∋∌⊆⊇⊂⊃∪∩-]+)"
-        r"\s*:\s*(.+?)\s*$",
+        r"^\s*([\w⁅⁆′≡≠≤≥⊓⊔⊤⊥∧∨∃∀λΣΠ⟦⟧⟨⟩·•□◯∞≜≔⇔⇒←→↔⇐⇑⇓⇨⇦∈∉∋∌⊆⊇⊂⊃∪∩-]+)\s*:\s*(.+?)\s*$",
         re.MULTILINE,
     )
 
+    variable_re = re.compile(r"^\s*(private\s+)?variable\s+(.+)", re.MULTILINE)
+    data_re = re.compile(r"^\s*data\s+(\w+)\s*(?:\((.*?)\))?\s*:\s*Set(?:.*?)where\s*((?:.|\n)*?)(?=^\S|\Z)", re.MULTILINE)
+    record_re = re.compile(r"^\s*record\s+(\w+)\s*(?:\((.*?)\))?\s*:\s*Set", re.MULTILINE)
+    module_re = re.compile(r"^\s*module\s+(\w+)\s*(?:\((.*?)\))?\s*where", re.MULTILINE)
+
     def __init__(self, root_dir):
         self.root_dir = root_dir
-        self.declared_variables = set()
-        self.declared_operators = set()
 
     def scan_lagda_files(self):
         lagda_files = []
@@ -167,62 +164,49 @@ class AgdaExtractor:
                     lagda_files.append(os.path.join(root, file))
         return lagda_files
 
-    def scan_declarations(self):
-        data_re = re.compile(r"^\s*(data|record|module)\s+(\S+)\s*(\((.*?)\))?", re.MULTILINE)
-        constructor_re = re.compile(r"^\s*([\w_′⁺⁻∷≡≠≤≥⊓⊔⊤⊥∧∨∃∀]+)\s*:", re.MULTILINE)
-        for path in self.scan_lagda_files():
-            try:
-                with open(path, "r", encoding="utf-8") as f:
-                    text = f.read()
-                blocks = re.findall(r"(?ms)\\begin{code}(.*?)\\end{code}", text)
-                blocks += re.findall(r"(?ms)```agda\s*(.*?)```", text)
-
-                for block in blocks:
-                    for m in data_re.finditer(block):
-                        kind, name, _, raw_params = m.groups()
-                        if name:
-                            self.declared_operators.add(name)
-                        if raw_params:
-                            params = re.findall(r"([a-zA-Z_][\w']*)\s*:", raw_params)
-                            self.declared_variables.update(params)
-
-                        if kind == "data":
-                            after = block[m.end():].split("where", 1)
-                            if len(after) > 1:
-                                body = after[1]
-                                for con in constructor_re.finditer(body):
-                                    self.declared_operators.add(con.group(1).strip())
-            except Exception as e:
-                logging.warning(f"Declaration scan error in {path}: {e}")
-
     def extract_from_file(self, file_path):
-        def split_top_level_arrows(sig):
-            result = []
-            current = ''
-            stack = []
-            i = 0
-            while i < len(sig):
-                c = sig[i]
-                if c in BRACKET_PAIRS:
-                    stack.append(BRACKET_PAIRS[c])
-                    current += c
-                elif stack and c == stack[-1]:
-                    stack.pop()
-                    current += c
-                elif sig[i:i+1] == '→' and not stack:
-                    result.append(current.strip())
-                    current = ''
-                elif sig[i:i+1] == '→':
-                    current += '→'
-                else:
-                    current += c
-                i += 1
-            if current.strip():
-                result.append(current.strip())
-            return result
-
         with open(file_path, "r", encoding="utf-8") as f:
             content = f.read()
+
+        declared_variables = set()
+        type_constructors = set(KNOWN_TYPE_CONSTRUCTORS)
+
+        for var_match in self.variable_re.finditer(content):
+            decl = var_match.group(2)
+            for line in decl.split('\n'):
+                parts = re.split(r"\s*:\s*", line)
+                if len(parts) == 2:
+                    names = parts[0].strip().split()
+                    declared_variables.update(names)
+
+        for data_match in self.data_re.finditer(content):
+            type_name, params, body = data_match.groups()
+            type_constructors.add(type_name)
+            if params:
+                declared_variables.update([
+                    p.split(":")[0].strip()
+                    for p in params.split() if ":" in p
+                ])
+            constructors = re.findall(r"^\s*(\w+)\s*:", body, re.MULTILINE)
+            type_constructors.update(constructors)
+
+        for rec_match in self.record_re.finditer(content):
+            type_name = rec_match.group(1)
+            param_block = rec_match.group(2)
+            type_constructors.add(type_name)
+            if param_block:
+                declared_variables.update([
+                    p.split(":")[0].strip()
+                    for p in param_block.split() if ":" in p
+                ])
+
+        for mod_match in self.module_re.finditer(content):
+            param_block = mod_match.group(2)
+            if param_block:
+                declared_variables.update([
+                    p.split(":")[0].strip()
+                    for p in param_block.split() if ":" in p
+                ])
 
         blocks = re.findall(r"(?ms)\\begin{code}(.*?)\\end{code}", content)
         blocks += re.findall(r"(?ms)```agda\s*(.*?)```", content)
@@ -230,26 +214,26 @@ class AgdaExtractor:
         functions = []
         for block in blocks:
             block = re.sub(r"(?ms)\{\-.*?\-\}", "", block)
-            cleaned_lines = []
-            for line in block.splitlines():
-                line = re.sub(r"--.*", "", line).strip()
-                if line:
-                    cleaned_lines.append(line)
+            cleaned_lines = [re.sub(r"--.*", "", line).strip() for line in block.splitlines() if line.strip()]
             cleaned = "\n".join(cleaned_lines)
 
             for m in self.decl_re.finditer(cleaned):
                 name, sig = m.group(1), m.group(2).strip()
-                parts = split_top_level_arrows(sig)
+                type_constructors.add(name)
+                parts = [p.strip() for p in re.split(r"\s*→\s*", sig) if p.strip()]
                 if len(parts) < 2:
                     continue
 
-                input_types, output_type = parts[:-1], parts[-1]
+                input_types = parts[:-1]
+                output_type = parts[-1]
 
                 vars_, ops_, nums_ = classify_signature(
-                    parts, known_vars=self.declared_variables, known_ops=self.declared_operators
+                    input_types + [output_type],
+                    declared_variables,
+                    type_constructors
                 )
-                annotated = " ".join(annotate_signature(sig, self.declared_variables, self.declared_operators))
-                shallow = " ".join(generate_shallow_trace(sig, self.declared_variables, self.declared_operators))
+                annotated = " ".join(annotate_signature(sig, declared_variables, type_constructors))
+                shallow = ", ".join(generate_shallow_trace(sig, declared_variables, type_constructors))
 
                 functions.append(
                     {
@@ -269,7 +253,6 @@ class AgdaExtractor:
         return functions
 
     def collect_functions(self):
-        self.scan_declarations()
         all_rows = []
         for path in self.scan_lagda_files():
             try:
