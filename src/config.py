@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS agda_signatures (
     operators TEXT[],
     numbers TEXT[],
     annotated_signature TEXT,
-    shallow_trace TEXT
+    shallow_trace TEXT,
+    UNIQUE (file_path, function_name, signature)
 );
 """
