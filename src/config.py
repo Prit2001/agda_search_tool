@@ -21,6 +21,8 @@ CREATE TABLE IF NOT EXISTS agda_signatures (
     output_type TEXT,
     variables TEXT[],
     operators TEXT[],
-    numbers TEXT[]
+    numbers TEXT[],
+    annotated_signature TEXT,
+    shallow_trace TEXT
 );
 """
