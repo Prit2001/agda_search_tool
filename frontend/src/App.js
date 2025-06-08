@@ -24,7 +24,6 @@ function App() {
         return res.json();
       })
       .then((data) => {
-        console.log(data, "data");
         setResults(data);
       })
       .catch((err) => {
