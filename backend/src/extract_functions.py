@@ -1,6 +1,7 @@
 import os
 import re
 import logging
+from typing import List
 import psycopg2
 from psycopg2.extras import execute_values
 
@@ -131,26 +132,43 @@ def annotate_piece(piece, declared_variables, type_constructors):
 def annotate_signature(signature, declared_variables, type_constructors):
     tokens = extract_bracketed_tokens(signature)
     result = []
+    
     for tok in tokens:
         clean = tok.strip()
+        
         if clean in ["→", ","]:
             result.append(clean)
-        elif any(
-            clean.startswith(b) and clean.endswith(BRACKET_PAIRS[b])
-            for b in BRACKET_PAIRS
-        ):
+        elif any(clean.startswith(b) and clean.endswith(BRACKET_PAIRS[b]) for b in BRACKET_PAIRS):
+            # Find which bracket type this is
             b = next(b for b in BRACKET_PAIRS if clean.startswith(b))
             inner = clean[1:-1].strip()
-            annotated_inner = (
-                annotate_piece(inner, declared_variables, type_constructors)
-                if ":" in inner
-                else " ".join(
+            
+            if ":" in inner:
+                # Handle variable declarations with type annotations like "A B C : Set"
+                parts = inner.split(":", 1)  # Split only on first colon
+                vars_part = parts[0].strip()
+                type_part = parts[1].strip()
+                
+                # Process each variable in the declaration
+                var_tokens = vars_part.split()
+                annotated_vars = []
+                for var in var_tokens:
+                    annotated_vars.append(annotate_piece(var, declared_variables, type_constructors))
+                
+                # Process the type part
+                annotated_type = annotate_piece(type_part, declared_variables, type_constructors)
+                
+                annotated_inner = " ".join(annotated_vars) + " : " + annotated_type
+            else:
+                # Handle simple bracket contents without type annotations
+                annotated_inner = " ".join(
                     annotate_signature(inner, declared_variables, type_constructors)
                 )
-            )
+            
             result.append(f"{b}{annotated_inner}{BRACKET_PAIRS[b]}")
         else:
             result.append(annotate_piece(clean, declared_variables, type_constructors))
+    
     return result
 
 
@@ -168,28 +186,49 @@ def shallow_trace_piece(piece, declared_variables, type_constructors):
 def generate_shallow_trace(signature, declared_variables, type_constructors):
     tokens = extract_bracketed_tokens(signature)
     result = []
+    
     for tok in tokens:
         clean = tok.strip()
+        
         if clean in ["→", ","]:
             continue
-        elif any(
-            clean.startswith(b) and clean.endswith(BRACKET_PAIRS[b])
-            for b in BRACKET_PAIRS
-        ):
+        elif any(clean.startswith(b) and clean.endswith(BRACKET_PAIRS[b]) for b in BRACKET_PAIRS):
+            # Find which bracket type this is
             b = next(b for b in BRACKET_PAIRS if clean.startswith(b))
             inner = clean[1:-1].strip()
-            st_inner = (
-                shallow_trace_piece(inner, declared_variables, type_constructors)
-                if ":" in inner
-                else ", ".join(
+            
+            if ":" in inner:
+                # Handle variable declarations with type annotations like "A B C : Set"
+                parts = inner.split(":", 1)  # Split only on first colon
+                vars_part = parts[0].strip()
+                type_part = parts[1].strip()
+                
+                # Process each variable in the declaration
+                var_tokens = vars_part.split()
+                traced_vars = []
+                for var in var_tokens:
+                    piece = shallow_trace_piece(var, declared_variables, type_constructors)
+                    if piece:
+                        traced_vars.append(piece)
+                
+                # Process the type part
+                type_piece = shallow_trace_piece(type_part, declared_variables, type_constructors)
+                
+                # Combine the results
+                all_pieces = traced_vars[:]
+                if type_piece:
+                    all_pieces.append(type_piece)
+                
+                st_inner = ", ".join(all_pieces) if all_pieces else ""
+            else:
+                # Handle simple bracket contents without type annotations
+                st_inner = ", ".join(
                     x
-                    for x in generate_shallow_trace(
-                        inner, declared_variables, type_constructors
-                    )
+                    for x in generate_shallow_trace(inner, declared_variables, type_constructors)
                     if x
-                )
-            )
-            result.append(f"{b}{st_inner}{BRACKET_PAIRS[b]}")
+                )      
+            if st_inner:  # Only add if there's content
+                result.append(f"{b}{st_inner}{BRACKET_PAIRS[b]}")
         else:
             piece = shallow_trace_piece(clean, declared_variables, type_constructors)
             if piece:
