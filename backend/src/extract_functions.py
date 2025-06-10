@@ -29,8 +29,6 @@ KNOWN_OPERATORS = {
     "∧",
     "∨",
     "¬",
-    "even",
-    "Parity",
 }
 
 KNOWN_TYPE_CONSTRUCTORS = {
@@ -47,6 +45,7 @@ KNOWN_TYPE_CONSTRUCTORS = {
     "Eq",
     "Show",
     "Ord",
+    "succ"
 }
 
 BRACKET_PAIRS = {"{": "}", "⦃": "⦄", "(": ")"}
@@ -85,13 +84,14 @@ def extract_bracketed_tokens(s):
 def classify_token(tok, declared_variables, type_constructors):
     if tok.isdigit():
         return "num"
-    if tok in declared_variables:
+    elif tok in declared_variables:
         return "var"
-    if tok in KNOWN_OPERATORS or tok in type_constructors:
+    elif tok in KNOWN_OPERATORS or tok in type_constructors:
         return "oper"
-    if re.fullmatch(r"[a-zA-Z_≤≥≠≡⊔⊓′₀₁₂₃₄₅₆₇₈₉][\w′₀₁₂₃₄₅₆₇₈₉≤≥≠≡⊔⊓']*", tok):
+    elif re.fullmatch(r"[a-zA-Z_≤≥≠≡⊔⊓′₀₁₂₃₄₅₆₇₈₉][\w′₀₁₂₃₄₅₆₇₈₉≤≥≠≡⊔⊓']*", tok):
         return "var"
-    return "unknown"
+    else:
+        return "unknown"
 
 
 def classify_signature(segments, declared_variables, type_constructors):
@@ -205,7 +205,7 @@ class AgdaExtractor:
 
     variable_re = re.compile(r"^\s*(private\s+)?variable\s+(.+)", re.MULTILINE)
     data_re = re.compile(
-        r"^\s*data\s+(\w+)\s*(?:\((.*?)\))?\s*:\s*Set(?:.*?)where\s*((?:.|\n)*?)(?=^\S|\Z)",
+        r"(?m)^data\s+([^\s:]+)(?:\s+.*)?\s*:\s*.*?Set\s*where\s*((?:.*\n)*?)(?=^(\S|\Z))",
         re.MULTILINE,
     )
     record_re = re.compile(
@@ -238,8 +238,7 @@ class AgdaExtractor:
                 if len(parts) == 2:
                     names = parts[0].strip().split()
                     declared_variables.update(names)
-
-        for data_match in self.data_re.finditer(content):
+        for data_match in list(self.data_re.finditer(content)):
             type_name, params, body = data_match.groups()
             type_constructors.add(type_name)
             if params:
