@@ -223,6 +223,33 @@ class AgdaExtractor:
                 if file.endswith(".lagda"):
                     lagda_files.append(os.path.join(root, file))
         return lagda_files
+    
+    def split_top_level_arrows(self, sig: str) -> List[str]:
+        parts: List[str] = []
+        cur: str = ""
+        depth: int = 0
+        i = 0
+        while i < len(sig):
+            ch = sig[i]
+            if ch in "({⦃":
+                depth += 1
+            elif ch in ")}⦄":
+                depth = max(depth - 1, 0)
+            if depth == 0:
+                if ch == "→":
+                    parts.append(cur)
+                    cur = ""
+                    i += 1
+                    continue
+                if sig.startswith("->", i):
+                    parts.append(cur)
+                    cur = ""
+                    i += 2
+                    continue
+            cur += ch
+            i += 1
+        parts.append(cur)
+        return parts
 
     def extract_from_file(self, file_path):
         with open(file_path, "r", encoding="utf-8") as f:
@@ -280,7 +307,9 @@ class AgdaExtractor:
             for m in self.decl_re.finditer(cleaned):
                 name, sig = m.group(1), m.group(2).strip()
                 type_constructors.add(name)
-                parts = [p.strip() for p in re.split(r"\s*→\s*", sig) if p.strip()]
+                raw_parts = self.split_top_level_arrows(sig)
+                parts = [p.strip().strip("⦃⦄") for p in raw_parts if p.strip()]
+                # parts = [p.strip() for p in re.split(r"\s*→\s*", sig) if p.strip()]
                 if len(parts) < 2:
                     continue
 
