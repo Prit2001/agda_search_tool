@@ -31,6 +31,8 @@ You will need:
 1. **PostgreSQL 14+**  
 2. **Node.js 20+** (includes npm)  
 3. **Python 3.8+**
+4. **Git (to clone the repository)**
+
 
 
 ## Installing PostgreSQL
@@ -60,6 +62,7 @@ $ sudo apt update
 $ sudo apt install -y python3 python3-venv python3-pip
 
 
+
 ### Download & Install Dependencies
 # 1. Clone the repository
 $ git clone https://gitlab.rhrk.uni-kl.de/dek50dyx/agda_search_tool.git
@@ -87,23 +90,31 @@ DB_PASS=your_db_password
 
 PORT=5001
 
+# 3. Frontend Environment
+# Create frontend/.env
+
+DANGEROUSLY_DISABLE_HOST_CHECK=true
+REACT_APP_API_URL=http://localhost:5001
 
 
 ### Database Initialization
 
-Start the PostgreSQL server (if it isn’t already running):
+# 1. Start the PostgreSQL server (if it isn’t already running):
 
 # e.g. on Ubuntu/Debian:
 $ sudo service postgresql start
 
-Create the database:
+# macOS with Homebrew:
+brew services start postgresql@14
 
+# 2. Create the database:
 $ createdb agda_search
 
-Create the agda_signatures table by running:
+# 3. Initialize Database Schema
 $ python backend/main.py
 
 This will connect to your agda_search database and create the necessary table(s).
+
 
 
 ### Running the Backend
@@ -115,6 +126,7 @@ $ python backend/app.py
 By default, the API listens on http://localhost:5001.
 
 
+
 ### Running the Frontend
 1. Open a new terminal and navigate to the frontend folder:
 $ cd frontend
@@ -122,10 +134,15 @@ $ cd frontend
 2. Install React dependencies:
 $ npm install
 
-3. Start the React development server:
+3. Create .env in frontend:
+DANGEROUSLY_DISABLE_HOST_CHECK=true
+REACT_APP_API_URL=http://localhost:5001
+
+4. Start the React development server:
 $ npm run start
 
 The UI will open at http://localhost:3000 and communicate with your Flask backend.
+
 
 
 ### Environment Variables
@@ -139,3 +156,7 @@ DB_USER=your_db_user
 DB_PASS=your_db_password
 
 PORT=5001
+
+# Frontend (frontend/.env)
+DANGEROUSLY_DISABLE_HOST_CHECK=true
+REACT_APP_API_URL=http://localhost:5001
