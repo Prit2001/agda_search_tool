@@ -21,6 +21,7 @@ NON_WORD = r"[^[:alnum:]_]*"
 SPACE = r"[[:space:]]+"
 ARROW_RE = rf"{NON_WORD}→{NON_WORD}"
 
+
 KNOWN_OPERATORS_BASE = {
     "+",
     "-",
@@ -45,6 +46,8 @@ KNOWN_OPERATORS_BASE = {
     "≠",
     "even",
     "Parity",
+    "succ",
+    "length",
 }
 
 KNOWN_TYPE_CONSTRUCTORS = {
@@ -65,21 +68,22 @@ KNOWN_TYPE_CONSTRUCTORS = {
 
 KNOWN_LITERALS = KNOWN_OPERATORS_BASE | KNOWN_TYPE_CONSTRUCTORS
 
+IGNORED_TOKENS = {"∀", "{", "}", "(", ")", ":"}
+
 VAR_LABEL = "var"
 OPER_LABEL = "oper"
 
 
 def classify_token(tok: str) -> str:
-    core = tok.strip("(){}[],:")
+    core = tok
     if not core:
         return ""
-
+    if core in IGNORED_TOKENS:
+        return ""
     if core == "→":
         return ARROW_RE
-
     if core.isdigit():
         return rf"{NON_WORD}num{SPACE}{core}{NON_WORD}"
-
     if core in KNOWN_LITERALS:
         return rf"{NON_WORD}{OPER_LABEL}{SPACE}{re.escape(core)}{NON_WORD}"
 
@@ -89,38 +93,40 @@ def classify_token(tok: str) -> str:
     return rf"{NON_WORD}{VAR_LABEL}{SPACE}{re.escape(core)}{NON_WORD}"
 
 
+def tokenize_query(q: str) -> list[str]:
+    return re.findall(r"[\w\-]+|->|-->|→|[^\s\w]", q)
+
+
 def user_input_to_patterns(raw: str):
+    raw_q = raw or ""
+    if not raw_q.strip():
+        return r"\z", r"\z"
 
-    normalized_for_like = normalize_arrows(raw or "").strip()
-    like_pattern = f"%{normalized_for_like}%"
+    tokens_for_raw = tokenize_query(raw_q)
+    escaped_tokens_for_raw = [re.escape(t) for t in tokens_for_raw if t]
+    raw_signature_regex = f".*{'.*'.join(escaped_tokens_for_raw)}.*"
 
-    txt_for_regex = re.sub(
-        r"^[∀∀]\s*\{.*?\}\s*(→|-{1,2}>)\s*", "", normalized_for_like
-    ).strip()
+    normalized_q = normalize_arrows(raw_q).strip()
+    tokens_for_annotated = tokenize_query(normalized_q)
+    pattern_parts = [classify_token(t) for t in tokens_for_annotated]
+    annotated_regex = f".*{''.join(pattern_parts)}.*"
 
-    if not txt_for_regex:
+    annotated_regex = re.sub(r"(?:" + NON_WORD + r"){2,}", NON_WORD, annotated_regex)
+    annotated_regex = re.sub(r"(\.\*)+", ".*", annotated_regex)
 
-        return r"\z", like_pattern
-
-    segments = [seg for seg in re.split(r"\s*→\s*", txt_for_regex) if seg]
-    seg_pats = []
-    for seg in segments:
-        toks = [t for t in re.split(r"\s+", seg) if t]
-        seg_pats.append("".join(classify_token(t) for t in toks))
-
-    body = ARROW_RE.join(seg_pats)
-    regex_pattern = rf".*{body}.*"
-
-    return regex_pattern, like_pattern
+    return annotated_regex, raw_signature_regex
 
 
 @app.route("/search")
 def search():
     raw_q = request.args.get("q", "")
 
-    regex_pattern, like_pattern = user_input_to_patterns(raw_q)
+    annotated_regex, raw_signature_regex = user_input_to_patterns(raw_q)
     app.logger.debug(
-        "User query '%s' → regex: '%s' | like: '%s'", raw_q, regex_pattern, like_pattern
+        "User query '%s' → annotated_regex: '%s' | raw_regex: '%s'",
+        raw_q,
+        annotated_regex,
+        raw_signature_regex,
     )
 
     conn = psycopg2.connect(**DB_PARAMS)
@@ -131,11 +137,11 @@ def search():
         SELECT file_path, function_name, signature, annotated_signature
         FROM   agda_signatures
         WHERE  annotated_signature ~* %s
-           OR  signature ILIKE %s
-        ORDER BY length(function_name), function_name
+           OR  signature ~* %s
+        ORDER BY length(signature), function_name
         LIMIT  200;
         """,
-        (regex_pattern, like_pattern),
+        (annotated_regex, raw_signature_regex),
     )
 
     rows = cur.fetchall()
