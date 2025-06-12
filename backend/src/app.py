@@ -74,25 +74,6 @@ VAR_LABEL = "var"
 OPER_LABEL = "oper"
 
 
-def classify_token(tok: str) -> str:
-    core = tok
-    if not core:
-        return ""
-    if core in IGNORED_TOKENS:
-        return ""
-    if core == "→":
-        return ARROW_RE
-    if core.isdigit():
-        return rf"{NON_WORD}num{SPACE}{core}{NON_WORD}"
-    if core in KNOWN_LITERALS:
-        return rf"{NON_WORD}{OPER_LABEL}{SPACE}{re.escape(core)}{NON_WORD}"
-
-    if len(core) == 1 and (core == "_" or core.islower()):
-        return rf"{NON_WORD}{VAR_LABEL}{SPACE}[^[:space:]]+{NON_WORD}"
-
-    return rf"{NON_WORD}{VAR_LABEL}{SPACE}{re.escape(core)}{NON_WORD}"
-
-
 def tokenize_query(q: str) -> list[str]:
     return re.findall(r"[\w\-]+|->|-->|→|[^\s\w]", q)
 
@@ -107,12 +88,38 @@ def user_input_to_patterns(raw: str):
     raw_signature_regex = f".*{'.*'.join(escaped_tokens_for_raw)}.*"
 
     normalized_q = normalize_arrows(raw_q).strip()
-    tokens_for_annotated = tokenize_query(normalized_q)
-    pattern_parts = [classify_token(t) for t in tokens_for_annotated]
-    annotated_regex = f".*{''.join(pattern_parts)}.*"
+    tokens = tokenize_query(normalized_q)
 
-    annotated_regex = re.sub(r"(?:" + NON_WORD + r"){2,}", NON_WORD, annotated_regex)
-    annotated_regex = re.sub(r"(\.\*)+", ".*", annotated_regex)
+    var_map = {}
+    pattern_parts = []
+
+    for token in tokens:
+        if token in IGNORED_TOKENS:
+            continue
+        elif token == "→":
+            pattern_parts.append(ARROW_RE)
+        elif token.isdigit():
+            pattern_parts.append(rf"{NON_WORD}num{SPACE}{token}{NON_WORD}")
+        elif token in KNOWN_LITERALS:
+            pattern_parts.append(
+                rf"{NON_WORD}{OPER_LABEL}{SPACE}{re.escape(token)}{NON_WORD}"
+            )
+        else:
+            if token not in var_map:
+
+                new_group_index = len(var_map) + 1
+                var_map[token] = new_group_index
+                pattern_parts.append(
+                    rf"{NON_WORD}{VAR_LABEL}{SPACE}([^[:space:]]+){NON_WORD}"
+                )
+            else:
+
+                group_index = var_map[token]
+                pattern_parts.append(
+                    rf"{NON_WORD}{VAR_LABEL}{SPACE}\{group_index}{NON_WORD}"
+                )
+
+    annotated_regex = f".*{''.join(pattern_parts)}.*"
 
     return annotated_regex, raw_signature_regex
 
