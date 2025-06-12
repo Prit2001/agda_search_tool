@@ -79,7 +79,7 @@ class AgdaExtractor:
             shallow_trace = self.shallow_trace(sig_cleaned, vars_, ops, nums)
             inputs, output = self.split_signature(sig_cleaned)
             signatures.append({
-                "file_path": file_path,
+                "file_path": os.path.relpath(file_path,self.root_dir),
                 "function_name": name,
                 "signature": sig,  # Only type part
                 "input_types": inputs,
