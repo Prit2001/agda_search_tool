@@ -9,6 +9,7 @@ app = Flask(__name__)
 
 
 ASCII_TO_UNI = {"->": "→", "-->": "→"}
+IGNORED_TOKENS = {"∀", "{", "}", "(", ")", ":", "⦃", "⦄"}
 
 
 def normalize_arrows(txt: str) -> str:
@@ -17,143 +18,57 @@ def normalize_arrows(txt: str) -> str:
     return txt
 
 
-NON_WORD = r"[^[:alnum:]_]*"
-SPACE = r"[[:space:]]+"
-ARROW_RE = rf"{NON_WORD}→{NON_WORD}"
-
-
-KNOWN_OPERATORS_BASE = {
-    "+",
-    "-",
-    "*",
-    "/",
-    "×",
-    "÷",
-    "::",
-    "++",
-    "⊕",
-    "⊗",
-    "⊓",
-    "⊔",
-    "∧",
-    "∨",
-    "¬",
-    "<",
-    ">",
-    "≤",
-    "≥",
-    "≡",
-    "≠",
-    "even",
-    "Parity",
-    "succ",
-    "length",
-}
-
-KNOWN_TYPE_CONSTRUCTORS = {
-    "Set",
-    "Bool",
-    "List",
-    "Ordering",
-    "Maybe",
-    "Nat",
-    "Char",
-    "String",
-    "IO",
-    "Either",
-    "Eq",
-    "Show",
-    "Ord",
-}
-
-KNOWN_LITERALS = KNOWN_OPERATORS_BASE | KNOWN_TYPE_CONSTRUCTORS
-
-IGNORED_TOKENS = {"∀", "{", "}", "(", ")", ":"}
-
-VAR_LABEL = "var"
-OPER_LABEL = "oper"
-
-
 def tokenize_query(q: str) -> list[str]:
     return re.findall(r"[\w\-]+|->|-->|→|[^\s\w]", q)
 
 
-def user_input_to_patterns(raw: str):
+def strip_ignored(txt: str) -> str:
+    for tok in IGNORED_TOKENS:
+        txt = txt.replace(tok, "")
+    return txt
+
+
+def find_matching_operators(raw: str) -> list[tuple]:
     raw_q = raw or ""
     if not raw_q.strip():
-        return r"\z", r"\z"
 
-    tokens_for_raw = tokenize_query(raw_q)
-    escaped_tokens_for_raw = [re.escape(t) for t in tokens_for_raw if t]
-    raw_signature_regex = f".*{'.*'.join(escaped_tokens_for_raw)}.*"
+        return []
 
     normalized_q = normalize_arrows(raw_q).strip()
-    tokens = tokenize_query(normalized_q)
+    print(normalized_q)
 
-    var_map = {}
-    pattern_parts = []
+    cleaned = strip_ignored(normalized_q)
 
-    for token in tokens:
-        if token in IGNORED_TOKENS:
-            continue
-        elif token == "→":
-            pattern_parts.append(ARROW_RE)
-        elif token.isdigit():
-            pattern_parts.append(rf"{NON_WORD}num{SPACE}{token}{NON_WORD}")
-        elif token in KNOWN_LITERALS:
-            pattern_parts.append(
-                rf"{NON_WORD}{OPER_LABEL}{SPACE}{re.escape(token)}{NON_WORD}"
-            )
-        else:
-            if token not in var_map:
+    no_arrows = cleaned.replace("→", "")
 
-                new_group_index = len(var_map) + 1
-                var_map[token] = new_group_index
-                pattern_parts.append(
-                    rf"{NON_WORD}{VAR_LABEL}{SPACE}([^[:space:]]+){NON_WORD}"
-                )
-            else:
+    ops = no_arrows.split()
+    if not ops:
+        return []
 
-                group_index = var_map[token]
-                pattern_parts.append(
-                    rf"{NON_WORD}{VAR_LABEL}{SPACE}\{group_index}{NON_WORD}"
-                )
-
-    annotated_regex = f".*{''.join(pattern_parts)}.*"
-
-    return annotated_regex, raw_signature_regex
+    conn = psycopg2.connect(**DB_PARAMS)
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT file_path, function_name, signature, annotated_signature
+              FROM agda_signatures
+             WHERE operators && %s
+             ORDER BY length(signature), function_name
+             LIMIT 200;
+            """,
+            (ops,),
+        )
+        return cur.fetchall()
+    finally:
+        cur.close()
+        conn.close()
 
 
 @app.route("/search")
 def search():
     raw_q = request.args.get("q", "")
-
-    annotated_regex, raw_signature_regex = user_input_to_patterns(raw_q)
-    app.logger.debug(
-        "User query '%s' → annotated_regex: '%s' | raw_regex: '%s'",
-        raw_q,
-        annotated_regex,
-        raw_signature_regex,
-    )
-
-    conn = psycopg2.connect(**DB_PARAMS)
-    cur = conn.cursor()
-
-    cur.execute(
-        """
-        SELECT file_path, function_name, signature, annotated_signature
-        FROM   agda_signatures
-        WHERE  annotated_signature ~* %s
-           OR  signature ~* %s
-        ORDER BY length(signature), function_name
-        LIMIT  200;
-        """,
-        (annotated_regex, raw_signature_regex),
-    )
-
-    rows = cur.fetchall()
-    cur.close()
-    conn.close()
+    rows = find_matching_operators(raw_q)
+    print(len(rows), "len rows")
 
     return jsonify(
         [
