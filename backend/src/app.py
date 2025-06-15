@@ -1,15 +1,11 @@
 from flask import Flask, request, jsonify
-import psycopg2
-import os
-import re
-
+import psycopg2, os, re
 from config import DB_PARAMS
 
 app = Flask(__name__)
 
-
 ASCII_TO_UNI = {"->": "→", "-->": "→"}
-IGNORED_TOKENS = {"∀", "ℕ", "λ" "{", "}", "(", ")", ":", "⦃", "⦄", "⟦", "⟧"}
+IGNORED_TOKENS = {"∀", "ℕ", "λ", "{", "}", "(", ")", ":", "⦃", "⦄", "⟦", "⟧"}
 
 
 def normalize_arrows(txt: str) -> str:
@@ -31,37 +27,53 @@ def strip_ignored(txt: str) -> str:
 def match_annotated_signature(
     fn_sign: str, vars: list, operators: list, nums: list, user_inp: str
 ) -> bool:
-    split_user_inp = user_inp.split()
-    split_fn_sign = fn_sign.split()
-    matching = False
+    fn_sign = normalize_arrows(fn_sign)
+    split_user = user_inp.split()
+    split_sig = fn_sign.split()
 
-    if len(split_user_inp) > len(split_fn_sign):
+    if len(split_user) > len(split_sig):
         return False
 
-    for op in operators:
-        if op in split_user_inp:
-            user_inp_ind_op = split_user_inp.index(op)
-            cand_ind_op = split_fn_sign.index(op)
-            for i in range(user_inp_ind_op):
-                if (
-                    split_fn_sign[cand_ind_op - user_inp_ind_op + i] not in vars
-                    and split_user_inp[i]
-                    != split_fn_sign[cand_ind_op - user_inp_ind_op + i]
-                ):
-                    matching = False
-                else:
-                    matching = True
-            for i in range(user_inp_ind_op + 1, len(split_user_inp)):
-                cand_ind_op += 1
-                if (
-                    split_fn_sign[cand_ind_op] not in vars
-                    and split_user_inp[i] != split_fn_sign[cand_ind_op]
-                ):
-                    matching = False
-                else:
-                    matching = True
+    if not operators:
+        for utok, stok in zip(split_user, split_sig):
+            if stok in vars or (stok.isdigit() and stok in nums):
+                continue
+            if utok != stok:
+                return False
+        return True
 
-    return matching
+    for op in operators:
+        if op not in split_user:
+            continue
+
+        if op not in split_sig:
+            continue
+
+        u_idx = split_user.index(op)
+        s_idx = split_sig.index(op)
+
+        start_idx = s_idx - u_idx
+        end_idx = start_idx + len(split_user)
+        if start_idx < 0 or end_idx > len(split_sig):
+            continue
+
+        for i in range(u_idx):
+            cand = split_sig[start_idx + i]
+            if cand not in vars and split_user[i] != cand:
+                break
+
+        else:
+            ok = True
+            for i in range(u_idx + 1, len(split_user)):
+                cand = split_sig[start_idx + i]
+                if cand not in vars and split_user[i] != cand:
+                    ok = False
+                    break
+
+            if ok:
+                return True
+
+    return False
 
 
 def find_matching_operators(raw: str) -> list[tuple]:
@@ -69,20 +81,16 @@ def find_matching_operators(raw: str) -> list[tuple]:
     if not raw_q.strip():
         return []
 
-    normalized_q = normalize_arrows(raw_q).strip()
-    cleaned = strip_ignored(normalized_q)
-    no_arrows = cleaned.replace("→", "")
-
-    toks = no_arrows.split()
+    norm_q = normalize_arrows(raw_q).strip()
+    cleaned = strip_ignored(norm_q).replace("→", "")
+    toks = cleaned.split()
     if not toks:
         return []
 
-    ops_query = [t for t in toks if not t.isdigit()]
+    ops_query = [t for t in toks if (not t.isdigit()) and t not in IGNORED_TOKENS]
     nums_query = [t for t in toks if t.isdigit()]
 
-    conn = psycopg2.connect(**DB_PARAMS)
-    try:
-        cur = conn.cursor()
+    with psycopg2.connect(**DB_PARAMS) as conn, conn.cursor() as cur:
         cur.execute(
             """
             SELECT file_path,
@@ -90,41 +98,37 @@ def find_matching_operators(raw: str) -> list[tuple]:
                    signature,
                    annotated_signature,
                    variables,
-                   operators,          
-                   numbers            
-              FROM agda_signatures
-             WHERE (operators && %s)
-                OR (numbers   && %s)
-             ORDER BY length(signature), function_name
-             LIMIT 200;
+                   operators,
+                   numbers
+            FROM agda_signatures
+            WHERE (operators && %s) OR (numbers && %s)
+            ORDER BY length(signature), function_name
+            LIMIT 400;
             """,
             (ops_query, nums_query),
         )
         candidates = cur.fetchall()
-    finally:
-        cur.close()
-        conn.close()
 
     ops_in_db = set()
     nums_in_db = set()
     for *_, op_arr, num_arr in candidates:
-        ops_in_db.update(op_arr)
+        ops_in_db.update(op for op in op_arr if op not in IGNORED_TOKENS)
         nums_in_db.update(num_arr)
 
     results = []
-    for fp, fn, sign, ann, vars, ops, nums, *_ in candidates:
-        if match_annotated_signature(sign, vars, ops, nums, normalized_q):
-            results.append((fp, fn, sign, ann))
 
-    return candidates
+    for fp, fn, sig, ann, vars, ops, nums in candidates:
+        if match_annotated_signature(sig, vars, ops, nums, norm_q):
+            results.append((fp, fn, sig, ann))
+
+    return results
 
 
 @app.route("/search")
 def search():
-    raw_q = request.args.get("q", "")
+    q = request.args.get("q", "")
     try:
-        rows = find_matching_operators(raw_q)
-
+        rows = find_matching_operators(q)
         return jsonify(
             [
                 {
@@ -136,10 +140,9 @@ def search():
                 for fp, fn, sig, ann, *_ in rows
             ]
         )
-    except:
-        print("An exception occurred")
+    except Exception as exc:
+        return jsonify({"error": "internal"}), 500
 
 
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 5001))
-    app.run(host="0.0.0.0", port=port, debug=True)
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5001)), debug=True)
