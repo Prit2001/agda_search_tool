@@ -25,7 +25,11 @@ def strip_ignored(txt: str) -> str:
 
 
 def match_annotated_signature(
-    fn_sign: str, vars: list, operators: list, nums: list, user_inp: str
+    fn_sign: str,
+    vars: list[str],
+    operators: list[str],
+    nums: list[str],
+    user_inp: str,
 ) -> bool:
     fn_sign = normalize_arrows(fn_sign)
     split_user = user_inp.split()
@@ -43,35 +47,43 @@ def match_annotated_signature(
         return True
 
     for op in operators:
-        if op not in split_user:
+        if op not in split_user or op not in split_sig:
             continue
 
-        if op not in split_sig:
-            continue
-
-        u_idx = split_user.index(op)
-        s_idx = split_sig.index(op)
-
+        u_idx, s_idx = split_user.index(op), split_sig.index(op)
         start_idx = s_idx - u_idx
         end_idx = start_idx + len(split_user)
         if start_idx < 0 or end_idx > len(split_sig):
             continue
 
+        failed = False
         for i in range(u_idx):
             cand = split_sig[start_idx + i]
-            if cand not in vars and split_user[i] != cand:
+            uTok = split_user[i]
+
+            if uTok in IGNORED_TOKENS and uTok != cand:
+                failed = True
                 break
 
-        else:
-            ok = True
-            for i in range(u_idx + 1, len(split_user)):
-                cand = split_sig[start_idx + i]
-                if cand not in vars and split_user[i] != cand:
-                    ok = False
-                    break
+            if cand not in vars and uTok != cand:
+                failed = True
+                break
+        if failed:
+            continue
 
-            if ok:
-                return True
+        for i in range(u_idx + 1, len(split_user)):
+            cand = split_sig[start_idx + i]
+            uTok = split_user[i]
+
+            if uTok in IGNORED_TOKENS and uTok != cand:
+                failed = True
+                break
+
+            if cand not in vars and uTok != cand:
+                failed = True
+                break
+        if not failed:
+            return True
 
     return False
 
