@@ -5,7 +5,13 @@ from config import DB_PARAMS
 app = Flask(__name__)
 
 ASCII_TO_UNI = {"->": "→", "-->": "→"}
-IGNORED_TOKENS = {"∀", "ℕ", "λ", "{", "}", "(", ")", ":", "⦃", "⦄", "⟦", "⟧"}
+IGNORED_TOKENS = {"∀", "ℕ", "ℤ", "λ", "{", "}", "(", ")", ":", "⦃", "⦄", "⟦", "⟧"}
+OPEN_BRACKETS = {"{", "(", "⦃"}
+CLOSE_BRACKETS = {"}", ")", "⦄"}
+BRACKET_MAP = {
+    **{ch: "(" for ch in OPEN_BRACKETS},
+    **{ch: ")" for ch in CLOSE_BRACKETS},
+}
 
 
 def normalize_arrows(txt: str) -> str:
@@ -14,14 +20,45 @@ def normalize_arrows(txt: str) -> str:
     return txt
 
 
+def normalize_brackets(txt: str) -> str:
+    return "".join(BRACKET_MAP.get(ch, ch) for ch in txt)
+
+
+def split_with_ignored(txt: str) -> list[str]:
+    tokens, buf = [], []
+    for ch in txt:
+        if ch.isspace():
+            if buf:
+                tokens.append("".join(buf))
+                buf.clear()
+        elif ch in IGNORED_TOKENS:
+            if buf:
+                tokens.append("".join(buf))
+                buf.clear()
+            tokens.append(ch)
+        else:
+            buf.append(ch)
+    if buf:
+        tokens.append("".join(buf))
+    return tokens
+
+
 def tokenize_query(q: str) -> list[str]:
-    return re.findall(r"[\w\-]+|->|-->|→|[^\s\w]", q)
+    return split_with_ignored(q)
 
 
 def strip_ignored(txt: str) -> str:
     for tok in IGNORED_TOKENS:
         txt = txt.replace(tok, "")
     return txt
+
+
+def br_equal(a: str, b: str) -> bool:
+    return (
+        a == b
+        or (a in OPEN_BRACKETS and b in OPEN_BRACKETS)
+        or (a in CLOSE_BRACKETS and b in CLOSE_BRACKETS)
+    )
 
 
 def match_annotated_signature(
@@ -31,9 +68,9 @@ def match_annotated_signature(
     nums: list[str],
     user_inp: str,
 ) -> bool:
-    fn_sign = normalize_arrows(fn_sign)
-    split_user = user_inp.split()
-    split_sig = fn_sign.split()
+    fn_sign = normalize_brackets(normalize_arrows(fn_sign))
+    split_user = split_with_ignored(normalize_brackets(user_inp))
+    split_sig = split_with_ignored(fn_sign)
 
     if len(split_user) > len(split_sig):
         return False
@@ -42,7 +79,9 @@ def match_annotated_signature(
         for utok, stok in zip(split_user, split_sig):
             if stok in vars or (stok.isdigit() and stok in nums):
                 continue
-            if utok != stok:
+            if utok in IGNORED_TOKENS and br_equal(utok, stok):
+                continue
+            if not br_equal(utok, stok):
                 return False
         return True
 
@@ -60,11 +99,9 @@ def match_annotated_signature(
         for i in range(u_idx):
             cand = split_sig[start_idx + i]
             uTok = split_user[i]
-
-            if uTok in IGNORED_TOKENS and uTok != cand:
+            if uTok in IGNORED_TOKENS and not br_equal(uTok, cand):
                 failed = True
                 break
-
             if cand not in vars and uTok != cand:
                 failed = True
                 break
@@ -74,11 +111,9 @@ def match_annotated_signature(
         for i in range(u_idx + 1, len(split_user)):
             cand = split_sig[start_idx + i]
             uTok = split_user[i]
-
-            if uTok in IGNORED_TOKENS and uTok != cand:
+            if uTok in IGNORED_TOKENS and not br_equal(uTok, cand):
                 failed = True
                 break
-
             if cand not in vars and uTok != cand:
                 failed = True
                 break
@@ -93,9 +128,9 @@ def find_matching_operators(raw: str) -> list[tuple]:
     if not raw_q.strip():
         return []
 
-    norm_q = normalize_arrows(raw_q).strip()
+    norm_q = normalize_brackets(normalize_arrows(raw_q)).strip()
     cleaned = strip_ignored(norm_q).replace("→", "")
-    toks = cleaned.split()
+    toks = split_with_ignored(cleaned)
     if not toks:
         return []
 
@@ -152,7 +187,7 @@ def search():
                 for fp, fn, sig, ann, *_ in rows
             ]
         )
-    except Exception as exc:
+    except Exception:
         return jsonify({"error": "internal"}), 500
 
 
