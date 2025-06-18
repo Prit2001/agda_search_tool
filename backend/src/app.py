@@ -61,6 +61,47 @@ def br_equal(a: str, b: str) -> bool:
     )
 
 
+def _drop_colon_sections(tok_list: list[str]) -> list[str]:
+    out: list[str] = []
+    i, n = 0, len(tok_list)
+
+    while i < n:
+        t = tok_list[i]
+
+        if t in OPEN_BRACKETS:
+            out.append(t)
+            depth = 1
+            j = i + 1
+            colon_at_lvl1 = -1
+
+            while j < n and depth:
+                tt = tok_list[j]
+                if tt in OPEN_BRACKETS:
+                    depth += 1
+                elif tt in CLOSE_BRACKETS:
+                    depth -= 1
+
+                if depth == 1 and tt == ":" and colon_at_lvl1 == -1:
+                    colon_at_lvl1 = j
+                j += 1
+
+            close_idx = j - 1
+
+            if colon_at_lvl1 == -1:
+                out.extend(tok_list[i + 1 : close_idx])
+            else:
+                out.extend(tok_list[i + 1 : colon_at_lvl1])
+
+            out.append(tok_list[close_idx])
+            i = close_idx + 1
+            continue
+
+        out.append(t)
+        i += 1
+
+    return out
+
+
 def match_annotated_signature(
     fn_sign: str,
     vars: list[str],
@@ -71,6 +112,9 @@ def match_annotated_signature(
     fn_sign = normalize_brackets(normalize_arrows(fn_sign))
     split_user = split_with_ignored(normalize_brackets(user_inp))
     split_sig = split_with_ignored(fn_sign)
+
+    if ":" not in split_user:
+        split_sig = _drop_colon_sections(split_sig)
 
     if len(split_user) > len(split_sig):
         return False
