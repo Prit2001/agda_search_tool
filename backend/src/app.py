@@ -5,7 +5,23 @@ from config import DB_PARAMS
 app = Flask(__name__)
 
 ASCII_TO_UNI = {"->": "→", "-->": "→"}
-IGNORED_TOKENS = {"∀", "ℕ", "ℤ", "λ", "{", "}", "(", ")", ":", "⦃", "⦄", "⟦", "⟧"}
+IGNORED_TOKENS = {
+    "∀",
+    "ℕ",
+    "ℤ",
+    "𝔹",
+    "𝕋",
+    "λ",
+    "{",
+    "}",
+    "(",
+    ")",
+    ":",
+    "⦃",
+    "⦄",
+    "⟦",
+    "⟧",
+}
 OPEN_BRACKETS = {"{", "(", "⦃"}
 CLOSE_BRACKETS = {"}", ")", "⦄"}
 BRACKET_MAP = {
