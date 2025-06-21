@@ -131,74 +131,42 @@ def _drop_colon_sections(tok_list: list[str]) -> list[str]:
 def match_annotated_signature(
     fn_sign: str,
     vars: list[str],
-    operators: list[str],
-    nums: list[str],
     user_inp: str,
 ) -> bool:
-    fn_sign = normalize_brackets(normalize_arrows(fn_sign))
-    split_user = split_with_ignored(normalize_brackets(user_inp))
-    split_sig = split_with_ignored(fn_sign)
 
-    if ":" not in split_user:
-        split_sig = _drop_colon_sections(split_sig)
+    sig_tokens = split_with_ignored(normalize_brackets(normalize_arrows(fn_sign)))
+    user_tokens = split_with_ignored(normalize_brackets(normalize_arrows(user_inp)))
 
-    if len(split_user) > len(split_sig):
+    if ":" not in user_tokens:
+        sig_tokens = _drop_colon_sections(sig_tokens)
+
+    m, n = len(user_tokens), len(sig_tokens)
+    if m > n:
         return False
 
-    subst: dict[str, str] = {}
+    for start in range(n - m + 1):
+        subst: dict[str, str] = {}
+        ok = True
 
-    if not operators:
-        for utok, stok in zip(split_user, split_sig):
+        for utok, stok in zip(user_tokens, sig_tokens[start : start + m]):
             if stok in vars:
-                if not _unify_var(utok, stok, subst):
-                    return False
-                continue
-            if stok.isdigit() and stok in nums:
-                continue
-            if utok in IGNORED_TOKENS and br_equal(utok, stok):
-                continue
-            if not br_equal(utok, stok):
-                return False
-        return True
-
-    for op in operators:
-        if op not in split_user or op not in split_sig:
-            continue
-
-        u_idx, s_idx = split_user.index(op), split_sig.index(op)
-        start_idx = s_idx - u_idx
-        end_idx = start_idx + len(split_user)
-        if start_idx < 0 or end_idx > len(split_sig):
-            continue
-
-        subst.clear()
-        failed = False
-
-        for i in range(u_idx):
-            cand, uTok = split_sig[start_idx + i], split_user[i]
-            if cand in vars:
-                if not _unify_var(uTok, cand, subst):
-                    failed = True
+                if utok in subst:
+                    if subst[utok] != stok:
+                        ok = False
+                        break
+                elif stok in subst.values():
+                    ok = False
                     break
-            elif uTok in IGNORED_TOKENS and br_equal(uTok, cand):
-                continue
-            elif uTok != cand:
-                failed = True
-                break
-        if failed:
-            continue
-        for i in range(u_idx + 1, len(split_user)):
-            cand, uTok = split_sig[start_idx + i], split_user[i]
-            if cand in vars:
-                if not _unify_var(uTok, cand, subst):
-                    failed = True
+                subst[utok] = stok
+            elif utok in IGNORED_TOKENS:
+                if not br_equal(utok, stok):
+                    ok = False
                     break
-            elif uTok in IGNORED_TOKENS and br_equal(uTok, cand):
-                continue
-            elif uTok != cand:
-                failed = True
+            elif utok != stok:
+                ok = False
                 break
-        if not failed:
+
+        if ok:
             return True
 
     return False
@@ -210,57 +178,26 @@ def find_matching_operators(raw: str) -> list[tuple]:
         return []
 
     norm_q = normalize_brackets(normalize_arrows(raw_q)).strip()
-    cleaned = strip_ignored(norm_q).replace("→", "")
-    toks = split_with_ignored(cleaned)
-
-    fetch_all = False
-
-    if not toks:
-        fetch_all = True
-        ops_query = []
-        nums_query = []
-    else:
-        ops_query = [t for t in toks if (not t.isdigit()) and t not in IGNORED_TOKENS]
-        nums_query = [t for t in toks if t.isdigit()]
 
     with psycopg2.connect(**DB_PARAMS) as conn, conn.cursor() as cur:
-        if fetch_all:
-            cur.execute(
-                """
-                SELECT file_path, function_name, signature,
-                    annotated_signature, variables, operators, numbers
-                FROM   agda_signatures
-                LIMIT  2000;                   
-                """
-            )
-        else:
-            cur.execute(
-                """
-                SELECT file_path,
-                    function_name,
-                    signature,
-                    annotated_signature,
-                    variables,
-                    operators,
-                    numbers
-                FROM agda_signatures
-                WHERE (operators && %s) OR (numbers && %s)
-                ORDER BY length(signature), function_name;
-                """,
-                (ops_query, nums_query),
-            )
+        cur.execute(
+            """
+            SELECT file_path,
+                function_name,
+                signature,
+                annotated_signature,
+                variables,
+                operators,
+                numbers
+            FROM agda_signatures;
+            """
+        )
         candidates = cur.fetchall()
-
-    ops_in_db = set()
-    nums_in_db = set()
-    for *_, op_arr, num_arr in candidates:
-        ops_in_db.update(op for op in op_arr if op not in IGNORED_TOKENS)
-        nums_in_db.update(num_arr)
 
     results = []
 
     for fp, fn, sig, ann, vars, ops, nums in candidates:
-        if match_annotated_signature(sig, vars, ops, nums, norm_q):
+        if match_annotated_signature(sig, vars, norm_q):
             results.append((fp, fn, sig, ann))
 
     return results
