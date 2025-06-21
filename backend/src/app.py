@@ -230,8 +230,7 @@ def find_matching_operators(raw: str) -> list[tuple]:
                    numbers
             FROM agda_signatures
             WHERE (operators && %s) OR (numbers && %s)
-            ORDER BY length(signature), function_name
-            LIMIT 400;
+            ORDER BY length(signature), function_name;
             """,
             (ops_query, nums_query),
         )
