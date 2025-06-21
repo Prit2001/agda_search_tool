@@ -40,6 +40,16 @@ def normalize_brackets(txt: str) -> str:
     return "".join(BRACKET_MAP.get(ch, ch) for ch in txt)
 
 
+def _unify_var(user_tok: str, cand_tok: str, subst: dict[str, str]) -> bool:
+    if user_tok in subst:
+        return subst[user_tok] == cand_tok
+
+    if cand_tok in subst.values():
+        return False
+    subst[user_tok] = cand_tok
+    return True
+
+
 def split_with_ignored(txt: str) -> list[str]:
     tokens, buf = [], []
     for ch in txt:
@@ -135,9 +145,15 @@ def match_annotated_signature(
     if len(split_user) > len(split_sig):
         return False
 
+    subst: dict[str, str] = {}
+
     if not operators:
         for utok, stok in zip(split_user, split_sig):
-            if stok in vars or (stok.isdigit() and stok in nums):
+            if stok in vars:
+                if not _unify_var(utok, stok, subst):
+                    return False
+                continue
+            if stok.isdigit() and stok in nums:
                 continue
             if utok in IGNORED_TOKENS and br_equal(utok, stok):
                 continue
@@ -155,26 +171,31 @@ def match_annotated_signature(
         if start_idx < 0 or end_idx > len(split_sig):
             continue
 
+        subst.clear()
         failed = False
+
         for i in range(u_idx):
-            cand = split_sig[start_idx + i]
-            uTok = split_user[i]
-            if uTok in IGNORED_TOKENS and not br_equal(uTok, cand):
-                failed = True
-                break
-            if cand not in vars and uTok != cand:
+            cand, uTok = split_sig[start_idx + i], split_user[i]
+            if cand in vars:
+                if not _unify_var(uTok, cand, subst):
+                    failed = True
+                    break
+            elif uTok in IGNORED_TOKENS and br_equal(uTok, cand):
+                continue
+            elif uTok != cand:
                 failed = True
                 break
         if failed:
             continue
-
         for i in range(u_idx + 1, len(split_user)):
-            cand = split_sig[start_idx + i]
-            uTok = split_user[i]
-            if uTok in IGNORED_TOKENS and not br_equal(uTok, cand):
-                failed = True
-                break
-            if cand not in vars and uTok != cand:
+            cand, uTok = split_sig[start_idx + i], split_user[i]
+            if cand in vars:
+                if not _unify_var(uTok, cand, subst):
+                    failed = True
+                    break
+            elif uTok in IGNORED_TOKENS and br_equal(uTok, cand):
+                continue
+            elif uTok != cand:
                 failed = True
                 break
         if not failed:
