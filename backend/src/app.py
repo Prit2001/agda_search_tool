@@ -212,28 +212,43 @@ def find_matching_operators(raw: str) -> list[tuple]:
     norm_q = normalize_brackets(normalize_arrows(raw_q)).strip()
     cleaned = strip_ignored(norm_q).replace("→", "")
     toks = split_with_ignored(cleaned)
-    if not toks:
-        return []
 
-    ops_query = [t for t in toks if (not t.isdigit()) and t not in IGNORED_TOKENS]
-    nums_query = [t for t in toks if t.isdigit()]
+    fetch_all = False
+
+    if not toks:
+        fetch_all = True
+        ops_query = []
+        nums_query = []
+    else:
+        ops_query = [t for t in toks if (not t.isdigit()) and t not in IGNORED_TOKENS]
+        nums_query = [t for t in toks if t.isdigit()]
 
     with psycopg2.connect(**DB_PARAMS) as conn, conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT file_path,
-                   function_name,
-                   signature,
-                   annotated_signature,
-                   variables,
-                   operators,
-                   numbers
-            FROM agda_signatures
-            WHERE (operators && %s) OR (numbers && %s)
-            ORDER BY length(signature), function_name;
-            """,
-            (ops_query, nums_query),
-        )
+        if fetch_all:
+            cur.execute(
+                """
+                SELECT file_path, function_name, signature,
+                    annotated_signature, variables, operators, numbers
+                FROM   agda_signatures
+                LIMIT  2000;                   
+                """
+            )
+        else:
+            cur.execute(
+                """
+                SELECT file_path,
+                    function_name,
+                    signature,
+                    annotated_signature,
+                    variables,
+                    operators,
+                    numbers
+                FROM agda_signatures
+                WHERE (operators && %s) OR (numbers && %s)
+                ORDER BY length(signature), function_name;
+                """,
+                (ops_query, nums_query),
+            )
         candidates = cur.fetchall()
 
     ops_in_db = set()
