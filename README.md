@@ -30,7 +30,7 @@ You will need:
 
 1. **PostgreSQL 14+**  
 2. **Node.js 20+** (includes npm)  
-3. **Python 3.8+**
+3. **Python 3.9+**
 4. **Git (to clone the repository)**
 
 
@@ -40,9 +40,10 @@ You will need:
 - **Windows / macOS**: Download the installer for PostgreSQL 14 or above from  
   https://www.postgresql.org/download/  
 - **Ubuntu/Debian**:
-  ```bash
-  $ sudo apt update
-  $ sudo apt install -y postgresql-14 postgresql-client-14
+```bash
+$ sudo apt update
+$ sudo apt install -y postgresql-14 postgresql-client-14
+```
  
 ## Installing Node.js
 
@@ -53,7 +54,7 @@ Verify with:
 $ node --version   # should be v20.x or higher
 $ npm --version
 
-## Installing Python 3.8+
+## Installing Python 3.9+
 
 Windows / macOS: https://www.python.org/downloads/
 
@@ -64,16 +65,34 @@ $ sudo apt install -y python3 python3-venv python3-pip
 
 
 ### Download & Install Dependencies
+
 # 1. Clone the repository
+``` bash
 $ git clone https://gitlab.rhrk.uni-kl.de/dek50dyx/agda_search_tool.git
 $ cd agda_search_tool
+```
 
-# 2. (Optional but recommended) Create & activate a Python virtualenv
-$ python3 -m venv venv
-$ source venv/bin/activate   # on Windows: venv\Scripts\activate
+# 2. Install Poetry
 
-# 3. Install backend (Flask) dependencies
-$ pip install -r backend/requirements.txt
+https://python-poetry.org/docs/#installation
+
+- **macOS / Linux**  
+```bash
+curl -sSL https://install.python-poetry.org | python3 -
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+- **Windows (PowerShell)**
+(Invoke-WebRequest -Uri https://install.python-poetry.org -UseBasicParsing).Content | python -
+# then add %USERPROFILE%\.poetry\bin to your PATH
+
+# 3. Activate Poetry (Recommended)
+From the project root, run:
+``` bash
+$ poetry install
+$ poetry shell
+```
+
 
 
 ### Project Setup
@@ -118,7 +137,7 @@ This will connect to your agda_search database and create the necessary table(s)
 
 
 ### Running the Backend
-From the project root (with your virtualenv activated):
+From the project root (with your environment active (via poetry shell)):
 
 # Launch the Flask API server:
 $ python backend/app.py
