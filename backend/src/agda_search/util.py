@@ -67,12 +67,13 @@ def _unify_var(user_tok: str, cand_tok: str, subst: Dict[str, str]) -> bool:
     return True
 
 
-def _drop_colon_sections(tokens: List[str]) -> List[str]:
-    out: List[str] = []
-    i, n = 0, len(tokens)
+def _drop_colon_sections(tok_list: list[str]) -> list[str]:
+    out: list[str] = []
+    i, n = 0, len(tok_list)
 
     while i < n:
-        t = tokens[i]
+        t = tok_list[i]
+
         if t in OPEN_BRACKETS:
             out.append(t)
             depth = 1
@@ -80,25 +81,29 @@ def _drop_colon_sections(tokens: List[str]) -> List[str]:
             colon_at_lvl1 = -1
 
             while j < n and depth:
-                tt = tokens[j]
+                tt = tok_list[j]
                 if tt in OPEN_BRACKETS:
                     depth += 1
                 elif tt in CLOSE_BRACKETS:
                     depth -= 1
+
                 if depth == 1 and tt == ":" and colon_at_lvl1 == -1:
                     colon_at_lvl1 = j
                 j += 1
 
             close_idx = j - 1
+
             if colon_at_lvl1 == -1:
-                out.extend(tokens[i + 1 : close_idx])
+                out.extend(tok_list[i + 1 : close_idx])
             else:
-                out.extend(tokens[i + 1 : colon_at_lvl1])
-            out.append(tokens[close_idx])
+                out.extend(tok_list[i + 1 : colon_at_lvl1])
+
+            out.append(tok_list[close_idx])
             i = close_idx + 1
-        else:
-            out.append(t)
-            i += 1
+            continue
+
+        out.append(t)
+        i += 1
 
     return out
 
