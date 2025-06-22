@@ -1,38 +1,37 @@
 import React, { useState } from "react";
+import { Radio, Button, Input } from "antd";
+import { SearchOutlined, LoadingOutlined } from "@ant-design/icons";
 import "./App.css";
 
 function App() {
   const [query, setQuery] = useState("");
+  const [mode, setMode] = useState("strict");
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
 
   const handleSearch = () => {
     const trimmed = query.trim();
-    if (!trimmed) {
-      return;
-    }
+    if (!trimmed) return;
 
     setHasSearched(true);
     setLoading(true);
 
-    fetch(`/search?q=${encodeURIComponent(trimmed)}`)
+    fetch(
+      `/search?q=${encodeURIComponent(trimmed)}&mode=${encodeURIComponent(
+        mode
+      )}`
+    )
       .then((res) => {
-        if (!res.ok) {
-          throw new Error(`HTTP ${res.status}`);
-        }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
       })
-      .then((data) => {
-        setResults(data);
-      })
+      .then(setResults)
       .catch((err) => {
         console.error("Search error:", err);
         setResults([]);
       })
-      .finally(() => {
-        setLoading(false);
-      });
+      .finally(() => setLoading(false));
   };
 
   return (
@@ -40,20 +39,36 @@ function App() {
       <h1>Agda Function Search</h1>
 
       <div className="search-box">
-        <input
-          type="text"
+        <Input
           placeholder="Type to search..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              handleSearch();
-            }
-          }}
+          onPressEnter={handleSearch}
+          size="large"
         />
-        <button onClick={handleSearch} disabled={loading}>
+
+        <Button
+          type="primary"
+          icon={loading ? <LoadingOutlined /> : <SearchOutlined />}
+          onClick={handleSearch}
+          disabled={loading}
+          size="large"
+          style={{ marginLeft: "0.75rem" }}
+        >
           Search
-        </button>
+        </Button>
+      </div>
+
+      <div style={{ marginBottom: "1rem" }}>
+        <Radio.Group
+          onChange={(e) => setMode(e.target.value)}
+          value={mode}
+          optionType="button"
+          buttonStyle="solid"
+        >
+          <Radio value="strict">Strict</Radio>
+          <Radio value="loose">Loose</Radio>
+        </Radio.Group>
       </div>
 
       <div className="results-container">
