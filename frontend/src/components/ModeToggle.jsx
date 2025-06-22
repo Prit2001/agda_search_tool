@@ -1,14 +1,20 @@
 import { Radio } from "antd";
-import { DEFAULT_MODE } from "../constants";
 
-export default function ModeToggle({ mode, setMode }) {
+export default function ModeToggle({ mode, setMode, query, runSearch }) {
+  const handleModeChange = (e) => {
+    const newMode = e.target.value;
+    setMode(newMode);
+    if (query?.trim()) {
+      runSearch(query.trim(), newMode);
+    }
+  };
+
   return (
     <Radio.Group
       value={mode}
-      onChange={(e) => setMode(e.target.value)}
+      onChange={handleModeChange}
       optionType="button"
       buttonStyle="solid"
-      defaultValue={DEFAULT_MODE}
     >
       <Radio value="strict">Strict</Radio>
       <Radio value="loose">Loose</Radio>

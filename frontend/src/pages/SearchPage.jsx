@@ -17,12 +17,13 @@ export default function SearchPage() {
   const [loading, setLoading] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  const runSearch = async (forcedQuery) => {
+  const runSearch = async (forcedQuery, forcedMode) => {
     const q = (forcedQuery ?? query).trim();
+    const m = forcedMode ?? mode;
     if (!q) return;
     setLoading(true);
     try {
-      const data = await search(q, mode);
+      const data = await search(q, m);
       setResults(data);
     } catch (e) {
       console.error(e);
@@ -48,7 +49,12 @@ export default function SearchPage() {
           />
 
           <Space align="center">
-            <ModeToggle mode={mode} setMode={setMode} />
+            <ModeToggle
+              mode={mode}
+              setMode={setMode}
+              query={query}
+              runSearch={runSearch}
+            />
             <Button
               icon={<HistoryOutlined />}
               onClick={() => setDrawerOpen(true)}
@@ -66,7 +72,7 @@ export default function SearchPage() {
           onSelect={(q) => {
             setDrawerOpen(false);
             setQuery(q);
-            runSearch(q);
+            runSearch(q, mode);
           }}
         />
       </Content>

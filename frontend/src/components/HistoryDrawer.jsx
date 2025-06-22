@@ -6,7 +6,7 @@ export default function HistoryDrawer({ open, onClose, onSelect }) {
 
   useEffect(() => {
     if (!open) return;
-    fetch("/history?limit=50")
+    fetch("/history?limit=100")
       .then((r) => r.json())
       .then(setHistory)
       .catch(console.error);
