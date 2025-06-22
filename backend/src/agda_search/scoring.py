@@ -10,8 +10,9 @@ def heuristic_score(user_sig: str, cand_sig: str) -> float:
     u = _tokenise(user_sig)
     c = _tokenise(cand_sig)
 
-    same_position = sum(1 for x, y in zip(u, c) if x == y)
+    same_pos = sum(1 for x, y in zip(u, c) if x == y)
+    same_pos_norm = same_pos / len(u)
     op_overlap = len(set(u) & set(c) - IGNORED_TOKENS)
-    len_penalty = -abs(len(c) - len(u)) * 0.1
+    len_penalty = -0.6 * abs(len(c) - len(u))
 
-    return same_position * 2 + op_overlap + len_penalty
+    return 2 * same_pos_norm + op_overlap + len_penalty
