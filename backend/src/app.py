@@ -34,8 +34,9 @@ def search() -> tuple:
                 "function_name": fn,
                 "signature": sig,
                 "annotated_signature": ann,
+                "relevance": score,
             }
-            for fp, fn, sig, ann in rows
+            for fp, fn, sig, ann, score in rows
         ]
     )
 

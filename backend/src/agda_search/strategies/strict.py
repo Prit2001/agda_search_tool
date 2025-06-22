@@ -9,7 +9,7 @@ from ..util import (
     match_annotated_signature,
 )
 from ..constants import IGNORED_TOKENS
-
+from ..scoring import heuristic_score
 from .base import SearchStrategy
 
 
@@ -50,5 +50,8 @@ class StrictSearch(SearchStrategy):
         results = []
         for fp, fn, sig, ann, vars_, ops, nums in candidates:
             if match_annotated_signature(sig, vars_, ops, nums, norm_q):
-                results.append((fp, fn, sig, ann))
+                score = heuristic_score(user_query, sig)
+                results.append((fp, fn, sig, ann, score))
+
+        results.sort(key=lambda r: r[-1], reverse=True)
         return results

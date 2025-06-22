@@ -7,6 +7,7 @@ from ..util import (
     br_equal,
     IGNORED_TOKENS,
 )
+from ..scoring import heuristic_score
 from .base import SearchStrategy
 
 
@@ -27,7 +28,10 @@ class LooseSearch(SearchStrategy):
         res = []
         for fp, fn, sig, ann, vars_ in rows:
             if self._matches(sig, vars_, norm_q):
-                res.append((fp, fn, sig, ann))
+                score = heuristic_score(user_query, sig)
+                res.append((fp, fn, sig, ann, score))
+
+        res.sort(key=lambda r: r[-1], reverse=True)
         return res
 
     def _matches(self, fn_sign: str, vars_, user_inp: str) -> bool:
