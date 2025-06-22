@@ -18,8 +18,8 @@ export default function SearchPage() {
   const [loading, setLoading] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  const runSearch = async () => {
-    const q = query.trim();
+  const runSearch = async (forcedQuery) => {
+    const q = (forcedQuery ?? query).trim();
     if (!q) return;
     setLoading(true);
     try {
@@ -66,9 +66,9 @@ export default function SearchPage() {
           open={drawerOpen}
           onClose={() => setDrawerOpen(false)}
           onSelect={(q) => {
-            setQuery(q);
             setDrawerOpen(false);
-            runSearch();
+            setQuery(q);
+            runSearch(q);
           }}
         />
       </Content>

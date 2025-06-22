@@ -1,4 +1,5 @@
 import { Table, Typography } from "antd";
+import { useState } from "react";
 
 const { Text } = Typography;
 
@@ -14,13 +15,24 @@ export default function ResultsTable({ results, loading }) {
     },
   ];
 
+  const [pageCfg, setPageCfg] = useState({
+    current: 1,
+    pageSize: 20,
+    showSizeChanger: true,
+    pageSizeOptions: ["20", "50", "100"],
+  });
+
   return (
     <Table
       columns={columns}
       dataSource={results}
       rowKey={(row) => `${row.file_path}-${row.function_name}-${row.signature}`}
       loading={loading}
-      pagination={{ pageSize: 20 }}
+      pagination={{
+        ...pageCfg,
+        onChange: (page, pageSize) =>
+          setPageCfg((p) => ({ ...p, current: page, pageSize })),
+      }}
       size="middle"
       bordered
     />
