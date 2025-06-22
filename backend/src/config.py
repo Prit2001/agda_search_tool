@@ -27,3 +27,12 @@ CREATE TABLE IF NOT EXISTS agda_signatures (
     UNIQUE (file_path, function_name, signature)
 );
 """
+
+
+CREATE_HISTORY_TABLE_SQL = """
+CREATE TABLE IF NOT EXISTS search_history (
+    id      SERIAL PRIMARY KEY,
+    query   TEXT UNIQUE,
+    ts      TIMESTAMPTZ DEFAULT now()
+);
+"""
