@@ -151,12 +151,13 @@ def match_annotated_signature(
 
         for i in range(u_idx):
             cand, uTok = split_sig[start_idx + i], split_user[i]
-            if cand in vars and not _unify_var(uTok, cand, subst):
-                failed = True
-                break
-            if uTok in IGNORED_TOKENS and br_equal(uTok, cand):
+            if cand in vars:
+                if not _unify_var(uTok, cand, subst):
+                    failed = True
+                    break
+            elif uTok in IGNORED_TOKENS and br_equal(uTok, cand):
                 continue
-            if uTok != cand:
+            elif uTok != cand:
                 failed = True
                 break
         if failed:
@@ -164,12 +165,13 @@ def match_annotated_signature(
 
         for i in range(u_idx + 1, len(split_user)):
             cand, uTok = split_sig[start_idx + i], split_user[i]
-            if cand in vars and not _unify_var(uTok, cand, subst):
-                failed = True
-                break
-            if uTok in IGNORED_TOKENS and br_equal(uTok, cand):
+            if cand in vars:
+                if not _unify_var(uTok, cand, subst):
+                    failed = True
+                    break
+            elif uTok in IGNORED_TOKENS and br_equal(uTok, cand):
                 continue
-            if uTok != cand:
+            elif uTok != cand:
                 failed = True
                 break
         if not failed:
