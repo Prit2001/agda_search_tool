@@ -6,7 +6,6 @@ import ModeToggle from "../components/ModeToggle";
 import ResultsTable from "../components/ResultsTable";
 import HistoryDrawer from "../components/HistoryDrawer";
 import { search } from "../api/search";
-import { addQueryToHistory } from "../utils/localHistory";
 import { DEFAULT_MODE } from "../constants";
 
 const { Header, Content } = Layout;
@@ -25,7 +24,6 @@ export default function SearchPage() {
     try {
       const data = await search(q, mode);
       setResults(data);
-      addQueryToHistory(q);
     } catch (e) {
       console.error(e);
       setResults([]);

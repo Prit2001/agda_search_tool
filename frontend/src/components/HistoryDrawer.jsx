@@ -1,8 +1,16 @@
 import { Drawer, List } from "antd";
-import { getHistory } from "../utils/localHistory";
+import { useEffect, useState } from "react";
 
 export default function HistoryDrawer({ open, onClose, onSelect }) {
-  const history = getHistory();
+  const [history, setHistory] = useState([]);
+
+  useEffect(() => {
+    if (!open) return;
+    fetch("/history?limit=50")
+      .then((r) => r.json())
+      .then(setHistory)
+      .catch(console.error);
+  }, [open]);
 
   return (
     <Drawer
