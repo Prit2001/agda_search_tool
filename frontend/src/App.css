@@ -135,3 +135,53 @@ h1 {
 .skeleton-cell:last-child {
   margin-right: 0;
 }
+
+.search-wrapper {
+  position: relative;
+  margin-bottom: 1rem;
+}
+
+.symbol-panel {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  background-color: #1e1e1e;
+  padding: 0.5rem;
+  border-radius: 6px;
+  max-width: 100%;
+  justify-content: flex-start;
+}
+
+.symbol-panel {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  background-color: #f8f8f8;
+  padding: 0.5rem;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  max-width: 100%;
+  justify-content: flex-start;
+}
+
+.symbol-btn {
+  background-color: #ffffff;
+  border: 1px solid #ccc;
+  color: #333;
+  padding: 0.35rem 0.6rem;
+  font-size: 1rem;
+  font-family: monospace;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.symbol-btn:hover {
+  background-color: #e6e6e6;
+  border-color: #999;
+}
+
+
