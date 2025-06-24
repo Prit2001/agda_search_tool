@@ -8,7 +8,12 @@ from .constants import (
     OPEN_BRACKETS,
     CLOSE_BRACKETS,
     BRACKET_MAP,
+    ZERO_FORMS,
 )
+
+
+def _is_zero(tok: str) -> bool:
+    return tok in ZERO_FORMS
 
 
 def normalize_zero(txt: str) -> str:
@@ -113,11 +118,14 @@ def _drop_colon_sections(tok_list: list[str]) -> list[str]:
 
 
 def _normalize_equiv(tokens: list[str]) -> list[str]:
+    def canon(t: str) -> str:
+        return "0" if _is_zero(t) else t
+
     out = tokens[:]
     for i in range(1, len(out) - 1):
         if out[i] == "≡":
             left, right = out[i - 1], out[i + 1]
-            if left > right:
+            if canon(left) > canon(right):
                 out[i - 1], out[i + 1] = right, left
     return out
 
@@ -177,7 +185,7 @@ def match_annotated_signature(
         for i in range(u_idx):
             cand, uTok = split_sig[start_idx + i], split_user[i]
 
-            if cand == "𝟎" and (uTok == "zero" or uTok == "0"):
+            if _is_zero(cand) and _is_zero(uTok):
                 continue
 
             if cand in vars:
@@ -195,7 +203,7 @@ def match_annotated_signature(
         for i in range(u_idx + 1, len(split_user)):
             cand, uTok = split_sig[start_idx + i], split_user[i]
 
-            if cand == "𝟎" and (uTok == "zero" or uTok == "0"):
+            if _is_zero(cand) and _is_zero(uTok):
                 continue
 
             if cand in vars:

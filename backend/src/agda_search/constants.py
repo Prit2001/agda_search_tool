@@ -1,5 +1,6 @@
 ASCII_TO_UNI = {"->": "→", "-->": "→"}
 
+
 IGNORED_TOKENS = {
     "∀",
     "ℕ",
@@ -18,10 +19,15 @@ IGNORED_TOKENS = {
     "⟧",
 }
 
+
 OPEN_BRACKETS = {"{", "(", "⦃"}
 CLOSE_BRACKETS = {"}", ")", "⦄"}
+
 
 BRACKET_MAP = {
     **{ch: "(" for ch in OPEN_BRACKETS},
     **{ch: ")" for ch in CLOSE_BRACKETS},
 }
+
+
+ZERO_FORMS = {"0", "zero", "𝟎"}

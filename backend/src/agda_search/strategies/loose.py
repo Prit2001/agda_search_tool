@@ -1,5 +1,6 @@
 from ..db import get_cursor
 from ..util import (
+    _is_zero,
     _normalize_equiv,
     normalize_zero,
     split_with_ignored,
@@ -56,7 +57,7 @@ class LooseSearch(SearchStrategy):
         for start in range(n - m + 1):
             subst, ok = {}, True
             for ut, st in zip(user_toks, sig_toks[start : start + m]):
-                if st == "𝟎" and (ut == "zero" or ut == "0"):
+                if _is_zero(st) and _is_zero(ut):
                     continue
 
                 if st in vars_:
