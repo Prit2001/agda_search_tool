@@ -1,0 +1,25 @@
+[build-system]
+requires = ["poetry-core>=1.5.0"]
+build-backend = "poetry.core.masonry.api"
+
+
+[tool.poetry]
+name = "agda-search-tool"
+version = "0.1.0"
+description = "A search tool for Agda codebases"
+readme = "README.md"
+
+
+[tool.poetry.dependencies]
+python = ">=3.9"
+requests = "2.31.0"
+python-dotenv = "^1.0"
+psycopg2 = "^2.9"
+flask = "^3.1.0"
+
+
+[[tool.poetry.packages]]
+include = "agda_search"
+from = "backend/src"
+
+
