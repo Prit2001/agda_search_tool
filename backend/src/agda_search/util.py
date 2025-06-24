@@ -11,6 +11,10 @@ from .constants import (
 )
 
 
+def normalize_zero(txt: str) -> str:
+    return txt.replace("zero", "0")
+
+
 def normalize_arrows(txt: str) -> str:
     for ascii_, uni in ASCII_TO_UNI.items():
         txt = txt.replace(ascii_, uni)
@@ -115,6 +119,9 @@ def match_annotated_signature(
     nums: list[str],
     user_inp: str,
 ) -> bool:
+    fn_sign = normalize_zero(fn_sign)
+    user_inp = normalize_zero(user_inp)
+
     fn_sign = normalize_brackets(normalize_arrows(fn_sign))
     split_user = split_with_ignored(normalize_brackets(user_inp))
     split_sig = split_with_ignored(fn_sign)
@@ -156,6 +163,10 @@ def match_annotated_signature(
 
         for i in range(u_idx):
             cand, uTok = split_sig[start_idx + i], split_user[i]
+
+            if cand == "𝟎" and (uTok == "zero" or uTok == "0"):
+                continue
+
             if cand in vars:
                 if not _unify_var(uTok, cand, subst):
                     failed = True
@@ -170,6 +181,10 @@ def match_annotated_signature(
 
         for i in range(u_idx + 1, len(split_user)):
             cand, uTok = split_sig[start_idx + i], split_user[i]
+
+            if cand == "𝟎" and (uTok == "zero" or uTok == "0"):
+                continue
+
             if cand in vars:
                 if not _unify_var(uTok, cand, subst):
                     failed = True
