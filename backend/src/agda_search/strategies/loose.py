@@ -1,5 +1,6 @@
 from ..db import get_cursor
 from ..util import (
+    _normalize_equiv,
     normalize_zero,
     split_with_ignored,
     normalize_arrows,
@@ -41,6 +42,9 @@ class LooseSearch(SearchStrategy):
 
         sig_toks = split_with_ignored(normalize_brackets(normalize_arrows(fn_sign)))
         user_toks = split_with_ignored(normalize_brackets(normalize_arrows(user_inp)))
+
+        sig_toks = _normalize_equiv(sig_toks)
+        user_toks = _normalize_equiv(user_toks)
 
         if ":" not in user_toks:
             sig_toks = _drop_colon_sections(sig_toks)

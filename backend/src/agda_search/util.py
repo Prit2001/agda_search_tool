@@ -112,6 +112,16 @@ def _drop_colon_sections(tok_list: list[str]) -> list[str]:
     return out
 
 
+def _normalize_equiv(tokens: list[str]) -> list[str]:
+    out = tokens[:]
+    for i in range(1, len(out) - 1):
+        if out[i] == "≡":
+            left, right = out[i - 1], out[i + 1]
+            if left > right:
+                out[i - 1], out[i + 1] = right, left
+    return out
+
+
 def match_annotated_signature(
     fn_sign: str,
     vars: list[str],
@@ -125,6 +135,9 @@ def match_annotated_signature(
     fn_sign = normalize_brackets(normalize_arrows(fn_sign))
     split_user = split_with_ignored(normalize_brackets(user_inp))
     split_sig = split_with_ignored(fn_sign)
+
+    split_user = _normalize_equiv(split_user)
+    split_sig = _normalize_equiv(split_sig)
 
     if ":" not in split_user:
         split_sig = _drop_colon_sections(split_sig)
