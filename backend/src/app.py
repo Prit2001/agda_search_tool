@@ -16,6 +16,9 @@ with psycopg2.connect(**DB_PARAMS) as conn, conn.cursor() as cur:
 conn.commit()
 
 
+AGDA_ROOT = os.getenv("AGDA_PROJECT_DIRECTORY")
+
+
 @app.route("/search")
 def search() -> tuple:
     query: str = request.args.get("q", "") or ""
@@ -63,6 +66,24 @@ def history():
             (limit,),
         )
         return jsonify([row[0] for row in cur.fetchall()])
+
+
+@app.route("/api/file-content")
+def get_file_content():
+    file = request.args.get('file')
+    if not file:
+        return "Missing file", 400
+
+    try:
+        full_path = os.path.normpath(os.path.join(AGDA_ROOT, file))
+        if not full_path.startswith(os.path.abspath(AGDA_ROOT)):
+            return "Invalid file path", 403
+
+        with open(full_path, 'r', encoding='utf-8') as f:
+            return f.read()
+    except Exception as e:
+        logging.exception("Error serving file content")
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":
