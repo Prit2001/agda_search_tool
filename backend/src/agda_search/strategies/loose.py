@@ -1,5 +1,8 @@
 from ..db import get_cursor
 from ..util import (
+    _is_zero,
+    _normalize_equiv,
+    normalize_zero,
     split_with_ignored,
     normalize_arrows,
     normalize_brackets,
@@ -35,8 +38,14 @@ class LooseSearch(SearchStrategy):
         return res
 
     def _matches(self, fn_sign: str, vars_, user_inp: str) -> bool:
+        fn_sign = normalize_zero(fn_sign)
+        user_inp = normalize_zero(user_inp)
+
         sig_toks = split_with_ignored(normalize_brackets(normalize_arrows(fn_sign)))
         user_toks = split_with_ignored(normalize_brackets(normalize_arrows(user_inp)))
+
+        sig_toks = _normalize_equiv(sig_toks)
+        user_toks = _normalize_equiv(user_toks)
 
         if ":" not in user_toks:
             sig_toks = _drop_colon_sections(sig_toks)
@@ -48,6 +57,9 @@ class LooseSearch(SearchStrategy):
         for start in range(n - m + 1):
             subst, ok = {}, True
             for ut, st in zip(user_toks, sig_toks[start : start + m]):
+                if _is_zero(st) and _is_zero(ut):
+                    continue
+
                 if st in vars_:
                     if (
                         ut in subst

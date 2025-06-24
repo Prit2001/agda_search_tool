@@ -90,7 +90,7 @@ export PATH="$HOME/.local/bin:$PATH"
 From the project root, run:
 ``` bash
 $ poetry install
-$ poetry shell
+$ poetry env activate
 ```
 
 
@@ -105,7 +105,7 @@ DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=agda_search
 DB_USER=your_db_user
-DB_PASS=your_db_password
+DB_PASSWORD=your_db_password
 
 PORT=5001
 
@@ -113,6 +113,8 @@ PORT=5001
 # Create frontend/.env
 
 DANGEROUSLY_DISABLE_HOST_CHECK=true
+# IMPORTANT: use the exact host:port where the Flask API runs.
+# Example below assumes you started `python src/app.py --port 5001`
 REACT_APP_API_URL=http://localhost:5001
 
 
@@ -130,7 +132,7 @@ brew services start postgresql@14
 $ createdb agda_search
 
 # 3. Initialize Database Schema
-$ python backend/main.py
+$ python backend/src/main.py
 
 This will connect to your agda_search database and create the necessary table(s).
 
@@ -140,7 +142,7 @@ This will connect to your agda_search database and create the necessary table(s)
 From the project root (with your environment active (via poetry shell)):
 
 # Launch the Flask API server:
-$ python backend/app.py
+$ python backend/src/app.py
 
 By default, the API listens on http://localhost:5001.
 
@@ -155,6 +157,8 @@ $ npm install
 
 3. Create .env in frontend:
 DANGEROUSLY_DISABLE_HOST_CHECK=true
+# IMPORTANT: use the exact host:port where the Flask API runs.
+# Example below assumes you started `python src/app.py --port 5001
 REACT_APP_API_URL=http://localhost:5001
 
 4. Start the React development server:
@@ -167,15 +171,17 @@ The UI will open at http://localhost:3000 and communicate with your Flask backen
 ### Environment Variables
 .env at project root 
 
-AGDA_PROJECT_DIRECTORY=PATH_TO_AGDA_PROJECT
+AGDA_PROJECT_DIRECTORY=/path/to/your/agda/project
 DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=agda_search
 DB_USER=your_db_user
-DB_PASS=your_db_password
+DB_PASSWORD=your_db_password
 
 PORT=5001
 
 # Frontend (frontend/.env)
 DANGEROUSLY_DISABLE_HOST_CHECK=true
+# IMPORTANT: use the exact host:port where the Flask API runs.
+# Example below assumes you started `python src/app.py --port 5001`
 REACT_APP_API_URL=http://localhost:5001

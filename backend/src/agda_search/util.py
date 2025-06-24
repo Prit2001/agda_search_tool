@@ -8,7 +8,16 @@ from .constants import (
     OPEN_BRACKETS,
     CLOSE_BRACKETS,
     BRACKET_MAP,
+    ZERO_FORMS,
 )
+
+
+def _is_zero(tok: str) -> bool:
+    return tok in ZERO_FORMS
+
+
+def normalize_zero(txt: str) -> str:
+    return txt.replace("zero", "0")
 
 
 def normalize_arrows(txt: str) -> str:
@@ -108,6 +117,19 @@ def _drop_colon_sections(tok_list: list[str]) -> list[str]:
     return out
 
 
+def _normalize_equiv(tokens: list[str]) -> list[str]:
+    def canon(t: str) -> str:
+        return "0" if _is_zero(t) else t
+
+    out = tokens[:]
+    for i in range(1, len(out) - 1):
+        if out[i] == "≡":
+            left, right = out[i - 1], out[i + 1]
+            if canon(left) > canon(right):
+                out[i - 1], out[i + 1] = right, left
+    return out
+
+
 def match_annotated_signature(
     fn_sign: str,
     vars: list[str],
@@ -115,9 +137,15 @@ def match_annotated_signature(
     nums: list[str],
     user_inp: str,
 ) -> bool:
+    fn_sign = normalize_zero(fn_sign)
+    user_inp = normalize_zero(user_inp)
+
     fn_sign = normalize_brackets(normalize_arrows(fn_sign))
     split_user = split_with_ignored(normalize_brackets(user_inp))
     split_sig = split_with_ignored(fn_sign)
+
+    split_user = _normalize_equiv(split_user)
+    split_sig = _normalize_equiv(split_sig)
 
     if ":" not in split_user:
         split_sig = _drop_colon_sections(split_sig)
@@ -156,6 +184,10 @@ def match_annotated_signature(
 
         for i in range(u_idx):
             cand, uTok = split_sig[start_idx + i], split_user[i]
+
+            if _is_zero(cand) and _is_zero(uTok):
+                continue
+
             if cand in vars:
                 if not _unify_var(uTok, cand, subst):
                     failed = True
@@ -170,6 +202,10 @@ def match_annotated_signature(
 
         for i in range(u_idx + 1, len(split_user)):
             cand, uTok = split_sig[start_idx + i], split_user[i]
+
+            if _is_zero(cand) and _is_zero(uTok):
+                continue
+
             if cand in vars:
                 if not _unify_var(uTok, cand, subst):
                     failed = True
