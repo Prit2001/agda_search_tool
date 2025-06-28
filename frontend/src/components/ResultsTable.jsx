@@ -12,9 +12,14 @@ export default function ResultsTable({ results, loading }) {
       key: "fp",
       
       render: (text, record) => (
-        <Link to={`/view?file=${encodeURIComponent(record.file_path)}&fn=${encodeURIComponent(record.function_name)}`}>
-          {text}
-        </Link>
+        <a
+  href={`/view?file=${encodeURIComponent(record.file_path)}&fn=${encodeURIComponent(record.function_name)}&line=${record.line_number}`}
+  target="_blank"
+  rel="noopener noreferrer"
+>
+  {text}
+</a>
+
       ),
     },
     { title: "Function Name", dataIndex: "function_name", key: "fn" },
