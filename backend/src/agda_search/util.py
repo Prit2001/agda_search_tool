@@ -1,5 +1,5 @@
 from __future__ import annotations
-
+import re
 from typing import Dict, List
 
 from .constants import (
@@ -9,15 +9,55 @@ from .constants import (
     CLOSE_BRACKETS,
     BRACKET_MAP,
     ZERO_FORMS,
+    SUCC_TOKENS,
+    DIGIT_PAT,
 )
+
+_ZERO_RE       = re.compile(fr"\b(?:{'|'.join(map(re.escape, ZERO_FORMS))})\b")
+_SUCC_GUARD_RE = re.compile(fr"\b{SUCC_TOKENS}\s+{SUCC_TOKENS}\b")
+_PAREN_SUCC_RE = re.compile(fr"\b{SUCC_TOKENS}\s*\(\s*({DIGIT_PAT})\s*\)")
+_SIMPLE_SUCC_RE= re.compile(fr"\b{SUCC_TOKENS}\s+({DIGIT_PAT})\b")
+_NUM_PARENS_RE = re.compile(r"\(\s*(\d+)\s*\)")
+
+
+def _check_parentheses_balanced(s: str) -> None:
+    depth = 0
+    for ch in s:
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+        if depth < 0:
+            raise ValueError("unbalanced parentheses in numeric literal")
+    if depth:
+        raise ValueError("unbalanced parentheses in numeric literal")
+
+def normalize_numbers(txt: str) -> str:
+    _check_parentheses_balanced(txt)
+
+    if _SUCC_GUARD_RE.search(txt):
+        raise ValueError("nested 'succ' must be parenthesised (e.g. succ (succ …))")
+
+    txt = _ZERO_RE.sub("0", txt)
+
+    while True:
+        new = _PAREN_SUCC_RE.sub(lambda m: str(int(m.group(1)) + 1), txt)
+        new = _SIMPLE_SUCC_RE.sub(lambda m: str(int(m.group(1)) + 1), new)
+        if new == txt:            # fixed-point reached
+            break
+        txt = new
+
+    while True:
+        new = _NUM_PARENS_RE.sub(r"\1", txt)
+        if new == txt:
+            break
+        txt = new
+
+    return txt
 
 
 def _is_zero(tok: str) -> bool:
     return tok in ZERO_FORMS
-
-
-def normalize_zero(txt: str) -> str:
-    return txt.replace("zero", "0")
 
 
 def normalize_arrows(txt: str) -> str:
@@ -137,8 +177,8 @@ def match_annotated_signature(
     nums: list[str],
     user_inp: str,
 ) -> bool:
-    fn_sign = normalize_zero(fn_sign)
-    user_inp = normalize_zero(user_inp)
+    fn_sign = normalize_numbers(fn_sign)
+    user_inp = normalize_numbers(user_inp)
 
     fn_sign = normalize_brackets(normalize_arrows(fn_sign))
     split_user = split_with_ignored(normalize_brackets(user_inp))
