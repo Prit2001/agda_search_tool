@@ -31,3 +31,7 @@ BRACKET_MAP = {
 
 
 ZERO_FORMS = {"0", "zero", "𝟎"}
+
+
+SUCC_TOKENS   = r"(?:suc|succ)"
+DIGIT_PAT     = r"\d+"

@@ -2,7 +2,7 @@ from ..db import get_cursor
 from ..util import (
     _is_zero,
     _normalize_equiv,
-    normalize_zero,
+    normalize_numbers,
     split_with_ignored,
     normalize_arrows,
     normalize_brackets,
@@ -38,8 +38,7 @@ class LooseSearch(SearchStrategy):
         return res
 
     def _matches(self, fn_sign: str, vars_, user_inp: str) -> bool:
-        fn_sign = normalize_zero(fn_sign)
-        user_inp = normalize_zero(user_inp)
+        user_inp = normalize_numbers(user_inp)
 
         sig_toks = split_with_ignored(normalize_brackets(normalize_arrows(fn_sign)))
         user_toks = split_with_ignored(normalize_brackets(normalize_arrows(user_inp)))
