@@ -23,8 +23,24 @@ class AgdaExtractor:
                     functions = self.extract_signatures(
                         code_blocks, full_path, declared_vars
                     )
+
+                    for fn in functions:
+                        fn["line_no"] = self._find_line_number(
+                            content, fn["function_name"]
+                        )
+
                     all_functions.extend(functions)
         return all_functions
+
+    def _find_line_number(self, text: str, name: str) -> int:
+        pattern = re.compile(rf"^\s*{re.escape(name)}\s*:", re.MULTILINE)
+        for idx, line in enumerate(text.splitlines(), 1):  # 1-based
+            stripped = line.lstrip()
+            if stripped.startswith("--") or stripped.startswith("{-"):
+                continue
+            if pattern.match(line):
+                return idx
+        return -1
 
     def extract_code_blocks(self, text: str) -> str:
         blocks = re.findall(r"\\begin{code}(.*?)\\end{code}", text, re.DOTALL)
@@ -64,10 +80,10 @@ class AgdaExtractor:
             r"^\s*([\w⁅⁆′≡≠≤≥⊓⊔⊤⊥∧∨∃∀λΣΠ⟦⟧⟨⟩·•□◯∞≜≔⇔⇒←→↔⇐⇑⇓⇨⇦∈∉∋∌⊆⊇⊂⊃∪∩-]+)\s*:\s*(.+?)\s*$",
             re.MULTILINE,
         )
+        signature_matches = decl_re.findall(code)
 
-        for m in decl_re.finditer(code):
-            name, sig = m.group(1), m.group(2).strip()
-            start_line = code[: m.start()].count("\n") + 1
+        for name, sig in signature_matches:
+            sig = sig.strip()
             if not sig or "→" not in sig and "->" not in sig:
                 continue
             if (file_path, name, sig) in seen_signatures:
@@ -93,7 +109,6 @@ class AgdaExtractor:
                     "numbers": list(nums),
                     "annotated_signature": annotated,
                     "shallow_trace": shallow_trace,
-                    "line_no": start_line,
                 }
             )
         return signatures
@@ -244,7 +259,7 @@ class DatabaseClient:
                 row["numbers"],
                 row["annotated_signature"],
                 row["shallow_trace"],
-                row["line_no"],
+                row.get("line_no"),
             )
             for row in rows
         ]

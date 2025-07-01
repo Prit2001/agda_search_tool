@@ -54,5 +54,5 @@ class StrictSearch(SearchStrategy):
                 score = heuristic_score(user_query, sig)
                 results.append((fp, fn, sig, ann, score, line_no))
 
-        results.sort(key=lambda r: r[-1], reverse=True)
+        results.sort(key=lambda r: r[-2], reverse=True)
         return results

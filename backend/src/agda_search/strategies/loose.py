@@ -34,7 +34,7 @@ class LooseSearch(SearchStrategy):
                 score = heuristic_score(user_query, sig)
                 res.append((fp, fn, sig, ann, score, line_no))
 
-        res.sort(key=lambda r: r[-1], reverse=True)
+        res.sort(key=lambda r: r[-2], reverse=True)
         return res
 
     def _matches(self, fn_sign: str, vars_, user_inp: str) -> bool:
