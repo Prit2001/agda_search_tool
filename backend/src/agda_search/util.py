@@ -157,6 +157,10 @@ def _drop_colon_sections(tok_list: list[str]) -> list[str]:
     return out
 
 
+def drop_colon_if_user_omits(tokenise_sig: list[str], tokenise_user: list[str]) -> list[str]:
+    return _drop_colon_sections(tokenise_sig) if ":" not in tokenise_user else tokenise_sig
+
+
 def _normalize_equiv(tokens: list[str]) -> list[str]:
     def canon(t: str) -> str:
         return "0" if _is_zero(t) else t
@@ -187,8 +191,7 @@ def match_annotated_signature(
     split_user = _normalize_equiv(split_user)
     split_sig = _normalize_equiv(split_sig)
 
-    if ":" not in split_user:
-        split_sig = _drop_colon_sections(split_sig)
+    split_sig = drop_colon_if_user_omits(split_sig, split_user)
 
     if len(split_user) > len(split_sig):
         return False
