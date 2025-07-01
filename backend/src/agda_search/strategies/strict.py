@@ -25,7 +25,8 @@ class StrictSearch(SearchStrategy):
                        annotated_signature,
                        variables,
                        operators,
-                       numbers
+                       numbers,
+                       line_no
                 FROM   agda_signatures
                 WHERE  (operators && %s) OR (numbers && %s)
                 ORDER  BY length(signature), function_name
@@ -48,10 +49,10 @@ class StrictSearch(SearchStrategy):
         norm_q = normalize_brackets(normalize_arrows(user_query)).strip()
 
         results = []
-        for fp, fn, sig, ann, vars_, ops, nums in candidates:
+        for fp, fn, sig, ann, vars_, ops, nums, line_no in candidates:
             if match_annotated_signature(sig, vars_, ops, nums, norm_q):
                 score = heuristic_score(user_query, sig)
-                results.append((fp, fn, sig, ann, score))
+                results.append((fp, fn, sig, ann, score, line_no))
 
         results.sort(key=lambda r: r[-1], reverse=True)
         return results
