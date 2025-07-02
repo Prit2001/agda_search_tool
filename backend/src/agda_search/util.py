@@ -18,6 +18,7 @@ _SUCC_GUARD_RE = re.compile(fr"\b{SUCC_TOKENS}\s+{SUCC_TOKENS}\b")
 _PAREN_SUCC_RE = re.compile(fr"\b{SUCC_TOKENS}\s*\(\s*({DIGIT_PAT})\s*\)")
 _SIMPLE_SUCC_RE= re.compile(fr"\b{SUCC_TOKENS}\s+({DIGIT_PAT})\b")
 _NUM_PARENS_RE = re.compile(r"\(\s*(\d+)\s*\)")
+_NEEDS_NUM_NORM_RE = re.compile(fr"\b(?:{SUCC_TOKENS}|{'|'.join(map(re.escape, ALIAS_TO_DIGIT.keys()))})\b")
 
 
 def _check_parentheses_balanced(s: str) -> None:
@@ -33,6 +34,9 @@ def _check_parentheses_balanced(s: str) -> None:
         raise ValueError("unbalanced parentheses in numeric literal")
 
 def normalize_numbers(txt: str) -> str:
+    if not _NEEDS_NUM_NORM_RE.search(txt):
+        return txt 
+    
     _check_parentheses_balanced(txt)
 
     if _SUCC_GUARD_RE.search(txt):
