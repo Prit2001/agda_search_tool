@@ -8,12 +8,12 @@ from .constants import (
     OPEN_BRACKETS,
     CLOSE_BRACKETS,
     BRACKET_MAP,
-    ZERO_FORMS,
+    ALIAS_TO_DIGIT,
     SUCC_TOKENS,
     DIGIT_PAT,
 )
 
-_ZERO_RE       = re.compile(fr"\b(?:{'|'.join(map(re.escape, ZERO_FORMS))})\b")
+_DIGIT_ALIAS_RE = re.compile(r"\b(" + "|".join(map(re.escape, ALIAS_TO_DIGIT.keys())) + r")\b")
 _SUCC_GUARD_RE = re.compile(fr"\b{SUCC_TOKENS}\s+{SUCC_TOKENS}\b")
 _PAREN_SUCC_RE = re.compile(fr"\b{SUCC_TOKENS}\s*\(\s*({DIGIT_PAT})\s*\)")
 _SIMPLE_SUCC_RE= re.compile(fr"\b{SUCC_TOKENS}\s+({DIGIT_PAT})\b")
@@ -42,7 +42,7 @@ def normalize_numbers(txt: str) -> str:
     if _SUCC_GUARD_RE.search(txt):
         raise ValueError("nested 'succ' must be parenthesised (e.g. succ (succ …))")
 
-    txt = _ZERO_RE.sub("0", txt)
+    txt = _DIGIT_ALIAS_RE.sub(lambda m: ALIAS_TO_DIGIT[m.group(1)], txt)
 
     while True:
         new = _PAREN_SUCC_RE.sub(lambda m: str(int(m.group(1)) + 1), txt)
@@ -60,8 +60,11 @@ def normalize_numbers(txt: str) -> str:
     return txt
 
 
-def _is_zero(tok: str) -> bool:
-    return tok in ZERO_FORMS
+def _canonical_digit(tok: str) -> str | None:
+    return ALIAS_TO_DIGIT.get(tok)
+
+def same_digit(a: str, b: str) -> bool:
+    return _canonical_digit(a) == _canonical_digit(b) != None
 
 
 def normalize_arrows(txt: str) -> str:
@@ -167,7 +170,7 @@ def drop_colon_if_user_omits(tokenise_sig: list[str], tokenise_user: list[str]) 
 
 def _normalize_equiv(tokens: list[str]) -> list[str]:
     def canon(t: str) -> str:
-        return "0" if _is_zero(t) else t
+        return _canonical_digit(t) or t
 
     out = tokens[:]
     for i in range(1, len(out) - 1):
@@ -232,7 +235,7 @@ def match_annotated_signature(
         for i in range(u_idx):
             cand, uTok = split_sig[start_idx + i], split_user[i]
 
-            if _is_zero(cand) and _is_zero(uTok):
+            if same_digit(cand, uTok):
                 continue
 
             if cand in vars:
@@ -250,7 +253,7 @@ def match_annotated_signature(
         for i in range(u_idx + 1, len(split_user)):
             cand, uTok = split_sig[start_idx + i], split_user[i]
 
-            if _is_zero(cand) and _is_zero(uTok):
+            if same_digit(cand, uTok):
                 continue
 
             if cand in vars:
