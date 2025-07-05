@@ -1,4 +1,4 @@
-from .util import split_with_ignored, normalize_arrows, normalize_brackets, drop_colon_if_user_omits
+from .util import split_with_ignored, normalize_arrows, normalize_brackets
 from .constants import IGNORED_TOKENS
 
 
@@ -9,7 +9,6 @@ def _tokenise(s: str):
 def heuristic_score(user_sig: str, cand_sig: str) -> float:
     u = _tokenise(user_sig)
     c = _tokenise(cand_sig)
-    c = drop_colon_if_user_omits(c, u)
 
     same_pos = sum(1 for x, y in zip(u, c) if x == y)
     same_pos_norm = same_pos / len(u)
