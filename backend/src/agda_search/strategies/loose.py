@@ -1,8 +1,8 @@
 from ..db import get_cursor
 from ..util import (
-    same_digit,
+    _is_zero,
     _normalize_equiv,
-    normalize_numbers,
+    normalize_zero,
     split_with_ignored,
     normalize_arrows,
     normalize_brackets,
@@ -38,7 +38,8 @@ class LooseSearch(SearchStrategy):
         return res
 
     def _matches(self, fn_sign: str, vars_, user_inp: str) -> bool:
-        user_inp = normalize_numbers(user_inp)
+        fn_sign = normalize_zero(fn_sign)
+        user_inp = normalize_zero(user_inp)
 
         sig_toks = split_with_ignored(normalize_brackets(normalize_arrows(fn_sign)))
         user_toks = split_with_ignored(normalize_brackets(normalize_arrows(user_inp)))
@@ -56,7 +57,7 @@ class LooseSearch(SearchStrategy):
         for start in range(n - m + 1):
             subst, ok = {}, True
             for ut, st in zip(user_toks, sig_toks[start : start + m]):
-                if same_digit(st, ut):
+                if _is_zero(st) and _is_zero(ut):
                     continue
 
                 if st in vars_:
