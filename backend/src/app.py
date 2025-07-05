@@ -44,12 +44,14 @@ def search() -> tuple:
         [
             {
                 "file_path": fp,
+                "abs_path": os.path.join(os.getenv("AGDA_PROJECT_DIRECTORY", ""), fp),
                 "function_name": fn,
                 "signature": sig,
                 "annotated_signature": ann,
                 "relevance": score,
+                "line_no": ln,
             }
-            for fp, fn, sig, ann, score in rows
+            for fp, fn, sig, ann, score, ln in rows
         ]
     )
 

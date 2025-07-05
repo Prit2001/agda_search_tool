@@ -22,19 +22,19 @@ class LooseSearch(SearchStrategy):
             cur.execute(
                 """
                     SELECT file_path,function_name,signature,annotated_signature,
-                        variables
+                        variables, line_no
                     FROM agda_signatures
                 """
             )
             rows = cur.fetchall()
 
         res = []
-        for fp, fn, sig, ann, vars_ in rows:
+        for fp, fn, sig, ann, vars_, line_no in rows:
             if self._matches(sig, vars_, norm_q):
                 score = heuristic_score(user_query, sig)
-                res.append((fp, fn, sig, ann, score))
+                res.append((fp, fn, sig, ann, score, line_no))
 
-        res.sort(key=lambda r: r[-1], reverse=True)
+        res.sort(key=lambda r: r[-2], reverse=True)
         return res
 
     def _matches(self, fn_sign: str, vars_, user_inp: str) -> bool:
