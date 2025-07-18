@@ -77,7 +77,7 @@ class AgdaExtractor:
         code = "\n".join(lines)
 
         decl_re = re.compile(
-            r"^\s*([\w⁅⁆′≡≠≤≥⊓⊔⊤⊥∧∨∃∀λΣΠ⟦⟧⟨⟩·•□◯∞≜≔⇔⇒←→↔⇐⇑⇓⇨⇦∈∉∋∌⊆⊇⊂⊃∪∩-]+)\s*:\s*(.+?)\s*$",
+            r"^\s*([^\s:]+)\s*:\s*(.+?)\s*$",
             re.MULTILINE,
         )
         signature_matches = decl_re.findall(code)
