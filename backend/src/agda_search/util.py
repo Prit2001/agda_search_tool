@@ -219,7 +219,11 @@ def match_annotated_signature(
     nums: list[str],
     user_inp: str,
 ) -> bool:
-    fn_sign = normalize_numbers(fn_sign)
+    try:
+        fn_sign = normalize_numbers(fn_sign)
+    except ValueError as e:
+        print(f"[normalize_numbers] skipped: {fn_sign!r}  ({e})")
+        return False
     user_inp = normalize_numbers(user_inp)
 
     fn_sign = normalize_brackets(normalize_arrows(fn_sign))
