@@ -1,5 +1,5 @@
 from __future__ import annotations
-
+import re
 from typing import Dict, List
 
 from .constants import (
@@ -8,16 +8,69 @@ from .constants import (
     OPEN_BRACKETS,
     CLOSE_BRACKETS,
     BRACKET_MAP,
-    ZERO_FORMS,
+    ALIAS_TO_DIGIT,
+    SUCC_TOKENS,
+    DIGIT_PAT,
+)
+
+_DIGIT_ALIAS_RE = re.compile(
+    r"\b(" + "|".join(map(re.escape, ALIAS_TO_DIGIT.keys())) + r")\b"
+)
+_SUCC_GUARD_RE = re.compile(rf"\b{SUCC_TOKENS}\s+{SUCC_TOKENS}\b")
+_PAREN_SUCC_RE = re.compile(rf"\b{SUCC_TOKENS}\s*\(\s*({DIGIT_PAT})\s*\)")
+_SIMPLE_SUCC_RE = re.compile(rf"\b{SUCC_TOKENS}\s+({DIGIT_PAT})\b")
+_NUM_PARENS_RE = re.compile(r"\(\s*(\d+)\s*\)")
+_NEEDS_NUM_NORM_RE = re.compile(
+    rf"\b(?:{SUCC_TOKENS}|{'|'.join(map(re.escape, ALIAS_TO_DIGIT.keys()))})\b"
 )
 
 
-def _is_zero(tok: str) -> bool:
-    return tok in ZERO_FORMS
+def _check_parentheses_balanced(s: str) -> None:
+    depth = 0
+    for ch in s:
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+        if depth < 0:
+            raise ValueError("unbalanced parentheses in numeric literal")
+    if depth:
+        raise ValueError("unbalanced parentheses in numeric literal")
 
 
-def normalize_zero(txt: str) -> str:
-    return txt.replace("zero", "0")
+def normalize_numbers(txt: str) -> str:
+    if not _NEEDS_NUM_NORM_RE.search(txt):
+        return txt
+
+    _check_parentheses_balanced(txt)
+
+    if _SUCC_GUARD_RE.search(txt):
+        raise ValueError("nested 'succ' must be parenthesised (e.g. succ (succ …))")
+
+    txt = _DIGIT_ALIAS_RE.sub(lambda m: ALIAS_TO_DIGIT[m.group(1)], txt)
+
+    while True:
+        new = _PAREN_SUCC_RE.sub(lambda m: str(int(m.group(1)) + 1), txt)
+        new = _SIMPLE_SUCC_RE.sub(lambda m: str(int(m.group(1)) + 1), new)
+        if new == txt:
+            break
+        txt = new
+
+    while True:
+        new = _NUM_PARENS_RE.sub(r"\1", txt)
+        if new == txt:
+            break
+        txt = new
+
+    return txt
+
+
+def _canonical_digit(tok: str) -> str | None:
+    return ALIAS_TO_DIGIT.get(tok)
+
+
+def same_digit(a: str, b: str) -> bool:
+    return _canonical_digit(a) == _canonical_digit(b) != None
 
 
 def normalize_arrows(txt: str) -> str:
@@ -117,16 +170,45 @@ def _drop_colon_sections(tok_list: list[str]) -> list[str]:
     return out
 
 
+def drop_colon_if_user_omits(
+    tokenise_sig: list[str], tokenise_user: list[str]
+) -> list[str]:
+    return (
+        _drop_colon_sections(tokenise_sig) if ":" not in tokenise_user else tokenise_sig
+    )
+
+
 def _normalize_equiv(tokens: list[str]) -> list[str]:
-    def canon(t: str) -> str:
-        return "0" if _is_zero(t) else t
+    DELIMS = {"→", "≡"}
 
     out = tokens[:]
-    for i in range(1, len(out) - 1):
-        if out[i] == "≡":
-            left, right = out[i - 1], out[i + 1]
-            if canon(left) > canon(right):
-                out[i - 1], out[i + 1] = right, left
+    i = 0
+    while i < len(out):
+        if out[i] != "≡":
+            i += 1
+            continue
+
+        l_end = i
+        l_start = l_end - 1
+        while l_start >= 0 and out[l_start] not in DELIMS:
+            l_start -= 1
+        l_start += 1
+
+        r_start = i + 1
+        r_end = r_start
+        while r_end < len(out) and out[r_end] not in DELIMS:
+            r_end += 1
+
+        left = out[l_start:l_end]
+        right = out[r_start:r_end]
+
+        if " ".join(left) > " ".join(right):
+            out = out[:l_start] + right + ["≡"] + left + out[r_end:]
+
+            i = l_start + len(right) + 1
+        else:
+
+            i = r_end
     return out
 
 
@@ -137,8 +219,12 @@ def match_annotated_signature(
     nums: list[str],
     user_inp: str,
 ) -> bool:
-    fn_sign = normalize_zero(fn_sign)
-    user_inp = normalize_zero(user_inp)
+    try:
+        fn_sign = normalize_numbers(fn_sign)
+    except ValueError as e:
+        print(f"[normalize_numbers] skipped: {fn_sign!r}  ({e})")
+        return False
+    user_inp = normalize_numbers(user_inp)
 
     fn_sign = normalize_brackets(normalize_arrows(fn_sign))
     split_user = split_with_ignored(normalize_brackets(user_inp))
@@ -147,8 +233,7 @@ def match_annotated_signature(
     split_user = _normalize_equiv(split_user)
     split_sig = _normalize_equiv(split_sig)
 
-    if ":" not in split_user:
-        split_sig = _drop_colon_sections(split_sig)
+    split_sig = drop_colon_if_user_omits(split_sig, split_user)
 
     if len(split_user) > len(split_sig):
         return False
@@ -185,7 +270,7 @@ def match_annotated_signature(
         for i in range(u_idx):
             cand, uTok = split_sig[start_idx + i], split_user[i]
 
-            if _is_zero(cand) and _is_zero(uTok):
+            if same_digit(cand, uTok):
                 continue
 
             if cand in vars:
@@ -203,7 +288,7 @@ def match_annotated_signature(
         for i in range(u_idx + 1, len(split_user)):
             cand, uTok = split_sig[start_idx + i], split_user[i]
 
-            if _is_zero(cand) and _is_zero(uTok):
+            if same_digit(cand, uTok):
                 continue
 
             if cand in vars:
